@@ -133,6 +133,7 @@ button.day{cursor:pointer;transition:background .12s,border-color .12s}
 button.day:hover{border-color:var(--field)}
 button.day .box{position:absolute;right:6px;bottom:6px;width:16px;height:16px;border:1.5px solid var(--muted);border-radius:4px;display:grid;place-items:center;font-size:11px;line-height:1}
 button.day.on{background:var(--field);border-color:var(--field);color:var(--field-ink)}
+button.day.must.on{border-color:var(--must);box-shadow:inset 0 0 0 2px var(--must)}
 button.day.on .l,button.day.on .n{color:var(--field-ink);opacity:.9}
 button.day.on .box{border-color:var(--field-ink);background:var(--field-ink);color:var(--field)}
 @media (max-width:480px){.day{min-height:58px;padding:5px}.day .l{font-size:10.5px}}
@@ -430,7 +431,7 @@ const CIRC="①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
 
 // 선택 가능한 날: 11/24 ~ 12/31 평일 중 휴일 제외
 const SEL=[];
-{let t=new Date(2026,10,24);const end=new Date(2026,11,31);let n=0;
+{let t=new Date(2026,10,23);const end=new Date(2027,0,4);let n=0;
  while(t<=end){const dw=t.getDay();const k=key(t.getFullYear(),t.getMonth()+1,t.getDate());
   if(dw>0&&dw<6&&!(INFO[k]&&INFO[k].t==="off")){SEL.push(k);
     if(!INFO[k]){INFO[k]={t:"field",l:"현장체험"+CIRC[n]};n++}}
@@ -498,6 +499,8 @@ function warnings(dates){
   if(ps.length>4)w.push({bad:true,t:`학기 중 기간까지 합쳐 ${ps.length}개 기간이에요. 신청서 칸은 4차까지라 날짜를 이어서 잡아 주세요.`});
   const ev=dates.filter(k=>INFO[k]&&INFO[k].t==="ev");
   if(ev.length)w.push({t:`학교 행사일(${ev.map(short).join(", ")})이 포함되어 있어요. 행사에 참여하지 않는 날로 처리됩니다.`});
+  const must=dates.filter(k=>INFO[k]&&INFO[k].t==="must");
+  if(must.length)w.push({bad:true,t:`등교 필수일(${must.map(short).join(", ")})이 포함되어 있어요. 꼭 필요한 경우에만 신청하고, 담임 선생님과 먼저 상의해 주세요.`});
   const rec=dates.filter(k=>INFO[k]&&INFO[k].t==="rec");
   if(rec.length)w.push({t:`등교 권장일(${rec.map(short).join(", ")})이 포함되어 있어요.`});
   return w;
@@ -787,7 +790,7 @@ function rr(x,c,y,w,h,r){x.beginPath();x.moveTo(c+r,y);x.arcTo(c+w,y,c+w,y+h,r);
 function dayKind(k,on){const info=INFO[k];
   if(k==="2027-01-05")return{f:SKY,t:SKY_INK,l:"졸업식"};
   if(info&&info.t==="off")return{f:OFF,t:OFF_INK,l:info.l};
-  if(on)return{f:GRN,t:GRN_INK,l:"체험학습"};
+  if(on)return{f:GRN,t:GRN_INK,l:"체험학습",must:!!(info&&info.t==="must")};
   if(info&&info.t==="must")return{f:SKY,t:MUST,l:"등교 필수★",must:true};
   if(info&&info.t==="ev")return{f:SKY,t:SKY_INK,l:info.l};
   return{f:SKY,t:SKY_INK,l:"등교"}}
@@ -1140,10 +1143,10 @@ async function drawHeat(list,cls){
   x.fillStyle=PAPER;x.fillRect(0,0,W,H);
   x.fillStyle=PLUM;x.font=`40px ${DF}`;x.fillText(`3학년 ${cls}반 날짜별 체험학습 인원표`,P,P+40);
   const now=new Date();x.font=`500 20px ${F}`;x.fillStyle=MUTE;
-  x.fillText(`재적 ${studs.length}명 · 제출 ${studs.filter(r=>r.submitted).length}명 · ${now.getMonth()+1}/${now.getDate()} ${pad(now.getHours())}:${pad(now.getMinutes())} 기준 · 초록 칸 = 체험학습 · 파란 열 = 학교 행사 · 노란 열 = 2차시험 주간·등교 권장일${studs.some(r=>!r.submitted)?" · * 미제출(시트 일정 기준)":""}`,P,P+76);
+  x.fillText(`재적 ${studs.length}명 · 제출 ${studs.filter(r=>r.submitted).length}명 · ${now.getMonth()+1}/${now.getDate()} ${pad(now.getHours())}:${pad(now.getMinutes())} 기준 · 초록 칸 = 체험학습 · 파란 열 = 학교 행사 · 노란 열 = 2차시험 주간·등교 권장일 · 빨간 열 = 등교 필수일${studs.some(r=>!r.submitted)?" · * 미제출(시트 일정 기준)":""}`,P,P+76);
   const x0=P+NW;let lastM=-1;x.textAlign="center";
   SEL.forEach((k,i)=>{const d=parse(k);const cx=x0+i*CW+CW/2;const info=INFO[k];
-    if(EXAM.has(k)||(info&&info.t!=="field")){x.fillStyle=info&&info.t==="ev"?"#e8ecfb":"#fff3dc";x.fillRect(x0+i*CW,top,CW,HH+studs.length*RH)}
+    if(EXAM.has(k)||(info&&info.t!=="field")){x.fillStyle=info&&info.t==="ev"?"#e8ecfb":info&&info.t==="must"?"#fbe9e7":"#fff3dc";x.fillRect(x0+i*CW,top,CW,HH+studs.length*RH)}
     if(d.getMonth()!==lastM){x.fillStyle=MUTE;x.font=`600 15px ${F}`;x.fillText(`${d.getMonth()+1}월`,cx,top+22);lastM=d.getMonth()}
     x.fillStyle=INK;x.font=`700 18px ${F}`;x.fillText(String(d.getDate()),cx,top+46);
     x.fillStyle=MUTE;x.font=`500 13px ${F}`;x.fillText(WD[d.getDay()],cx,top+64)});
