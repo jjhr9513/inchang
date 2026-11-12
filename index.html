@@ -69,6 +69,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--event);outline-
 .setup-row label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
 .linkout{margin:0;font-size:13px;padding:8px 10px;border-radius:8px;background:var(--line-2);word-break:break-all;user-select:all}
 .gate{max-width:560px}
+.modal-card.view-card{max-width:1080px}
+.view-body{display:flex;flex-direction:column;gap:18px}
+.vperiod{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.vperiod h3{font-size:19px;color:var(--plum)}
+.vdocs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:640px){.vdocs{grid-template-columns:minmax(0,1fr)}}
+.vdoc{display:flex;flex-direction:column;gap:8px;min-width:0}
+.vdoc-head{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between}
+.vdoc-head b{font-size:15px}
+.vdoc img{width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:zoom-in}
+.vdoc .actions .btn{padding:6px 12px;font-size:13px}
+.namebtn{background:none;border:0;padding:0;font:inherit;color:var(--event);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .headrow{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
 .docbtns{display:inline-flex;gap:4px;justify-self:end}
 .chip{font:600 12px var(--body);padding:3px 8px;border-radius:99px;border:1px solid var(--field);background:var(--sheet);color:var(--field);cursor:pointer}
@@ -269,8 +281,8 @@ tbody tr:hover{background:var(--line-2)}
       <summary><h2 style="display:inline">학기 중 사용 기록 입력</h2> <span class="hint">수능 전에 쓴 체험학습 중 시트에 빠진 것을 추가합니다</span></summary>
       <div class="setup-row">
         <label for="pstu">학생<select id="pstu" class="sel"></select></label>
-        <label for="pfrom">시작일<input id="pfrom" type="date" class="sel" min="2026-03-01" max="2026-11-20"></label>
-        <label for="pto">종료일<input id="pto" type="date" class="sel" min="2026-03-01" max="2026-11-20"></label>
+        <label for="pfrom">시작일<input id="pfrom" type="date" class="sel"></label>
+        <label for="pto">종료일<input id="pto" type="date" class="sel"></label>
         <label for="pn">일수<input id="pn" type="number" class="sel" min="0.5" max="20" step="0.5" style="width:90px"></label>
         <div class="actions"><button class="btn primary" id="padd" type="button">기록 추가</button></div>
       </div>
@@ -284,7 +296,8 @@ tbody tr:hover{background:var(--line-2)}
       <button class="btn" id="csv" type="button">우리반 CSV 받기</button>
       <button class="btn" id="zipimg" type="button">우리반 달력 사진 한꺼번에 받기</button>
       <button class="btn primary" id="teachimg" type="button">담임용 등교 학생 달력</button>
-      <select id="bulkkind" class="sel" aria-label="한꺼번에 받을 서류"><option value="plan">신청서·통보서</option><option value="report">결과보고서</option><option value="both">신청서+보고서</option></select>
+      <select id="bulkkind" class="sel" aria-label="한꺼번에 받을 서류"><option value="plan">신청서·통보서</option><option value="report">결과보고서</option><option value="both">신청서+보고서</option><option value="each">학생별 PDF 파일(압축)</option></select>
+      <button class="btn primary" id="bulkprint" type="button">우리반 서류 인쇄</button>
       <button class="btn" id="bulkpdf" type="button">우리반 서류 PDF</button>
       <span class="status" id="cstatus"></span>
     </div>
@@ -329,6 +342,14 @@ tbody tr:hover{background:var(--line-2)}
   </div>
 </div>
 
+<div class="modal" id="viewmodal" hidden role="dialog" aria-modal="true" aria-labelledby="viewtitle">
+  <div class="modal-card view-card">
+    <div class="modal-head"><h2 id="viewtitle">학생 서류</h2><button class="btn" id="viewclose" type="button">닫기</button></div>
+    <div class="actions"><button class="btn primary" id="viewprintall" type="button">전체 인쇄</button><button class="btn" id="viewpdfall" type="button">전체 PDF</button><span class="status" id="viewstatus"></span></div>
+    <div id="viewbody" class="view-body"></div>
+  </div>
+</div>
+
 <div class="modal" id="docmodal" hidden role="dialog" aria-modal="true" aria-labelledby="doctitle">
   <div class="modal-card doc-card">
     <div class="modal-head"><h2 id="doctitle">체험학습 신청서·보고서 작성</h2><button class="btn" id="docclose" type="button">닫기</button></div>
@@ -355,7 +376,7 @@ tbody tr:hover{background:var(--line-2)}
           <label for="p_gphone">보호자 휴대폰<input id="p_gphone" class="sel" type="tel" inputmode="tel" maxlength="13" placeholder="010-0000-0000"></label>
           <label for="p_purpose">목적<input id="p_purpose" class="sel" type="text" maxlength="60" placeholder="예: 우리나라 자연 지형 탐구"></label>
           <label for="p_plan">교외체험 학습계획<textarea id="p_plan" class="sel" rows="6" maxlength="500" placeholder="날짜별로 무엇을 할지 적어 주세요."></textarea></label>
-          <label for="p_date">제출 일자<input id="p_date" class="sel" type="date" min="2026-03-01" max="2027-02-28"></label>
+          <label for="p_date">제출 일자<input id="p_date" class="sel" type="date"></label>
         </div>
         <div id="fs-report" class="fset" hidden>
           <label for="r_dest">목적지<input id="r_dest" class="sel" type="text" maxlength="40"></label>
@@ -365,7 +386,7 @@ tbody tr:hover{background:var(--line-2)}
             <label><input type="radio" name="r_type" value="2">답사·견학 활동</label><label><input type="radio" name="r_type" value="3">체험 활동</label></fieldset>
           <label for="r_title">제목<input id="r_title" class="sel" type="text" maxlength="50"></label>
           <label for="r_body">내용 <span class="hint" id="r_count"></span><textarea id="r_body" class="sel" rows="10" maxlength="900" placeholder="체험학습을 통해 느낀 점, 배운 점을 적어 주세요."></textarea></label>
-          <label for="r_date">제출 일자<input id="r_date" class="sel" type="date" min="2026-03-01" max="2027-02-28"></label>
+          <label for="r_date">제출 일자<input id="r_date" class="sel" type="date"></label>
         </div>
         <p class="note" id="docwarn" hidden></p>
       </div>
@@ -378,6 +399,8 @@ tbody tr:hover{background:var(--line-2)}
       <button class="btn" id="docpng" type="button">사진으로 저장</button>
       <button class="btn" id="docpdf" type="button">이 서류 PDF (인쇄용)</button>
       <button class="btn" id="docpdf2" type="button">신청서+보고서 함께 PDF</button>
+      <button class="btn" id="docprint" type="button">이 서류 인쇄</button>
+      <button class="btn" id="docprint2" type="button">신청서+보고서 인쇄</button>
       <span class="status" id="docstatus"></span>
     </div>
     <p class="hint">반·번호·이름과 체험학습 날짜, 일수는 자동으로 들어갑니다. 서명(인)은 출력한 뒤 직접 써 주세요.</p>
@@ -393,7 +416,7 @@ window.addEventListener("error",function(e){var b=document.getElementById("errbo
 window.addEventListener("unhandledrejection",function(e){var r=e.reason||{};window.dispatchEvent(new ErrorEvent("error",{message:"(비동기) "+(r.msg||r.message||r)}))});
 (function(){
 "use strict";
-const Y=2026, MAX=20, NCLS=8;
+let YEAR=2026, MAX=20, NCLS=8;
 const BOOT=(function(){var q=new URLSearchParams(location.search);return{ban:+q.get("ban")||0,page:q.get("page")||"",url:location.origin+location.pathname}})();const ART=BOOT.url;
 const hashCls=()=>{const n=+BOOT.ban||0;return n>=1&&n<=NCLS?n:0};
 const API_URL="https://script.google.com/macros/s/AKfycbzWe2PQdjrkOITKd0Z1FZxeKv4A1Se1lDyGgJuXXHjSlAeKNntaI1aecn88TulcwFpy/exec";
@@ -408,37 +431,44 @@ const parse=k=>{const [y,m,d]=k.split("-").map(Number);return new Date(y,m-1,d)}
 const fmt=k=>{const t=parse(k);return `${pad(t.getMonth()+1)}.${pad(t.getDate())}.(${WD[t.getDay()]})`};
 const short=k=>{const t=parse(k);return `${t.getMonth()+1}/${t.getDate()}`};
 
-// 학교 일정 (안내문 기준)
-const INFO={};
-const set=(k,o)=>INFO[k]=o;
-set("2026-11-18",{t:"off",l:"수능예비소집일"});
-set("2026-11-19",{t:"off",l:"수학능력시험"});
-set("2026-11-20",{t:"off",l:"재량휴업일"});
-set("2026-11-23",{t:"must",l:"3학년 등교 필수★"});
-set("2026-12-07",{t:"ev",l:"롯데월드"});
-set("2026-12-08",{t:"ev",l:"CGV 구리"});
-set("2026-12-24",{t:"rec",l:"등교 (권장)"});
-set("2026-12-25",{t:"off",l:"성탄절"});
-set("2026-12-28",{t:"ev",l:"경복궁/역사박물관"});
-set("2026-12-29",{t:"ev",l:"경복궁/역사박물관"});
-set("2026-12-30",{t:"ev",l:"공예박물관"});
-set("2026-12-31",{t:"rec",l:"등교 (권장)"});
-set("2027-01-01",{t:"off",l:"신정"});
-set("2027-01-04",{t:"must",l:"등교 필수★ · 정시원서"});
-set("2027-01-05",{t:"off",l:"졸업식"});
-const EXAM=new Set(["2026-12-11","2026-12-14","2026-12-15","2026-12-16","2026-12-17"]);
+// ---------- 학사일정: 구글 시트의 '설정'·'학사일정'·'담임' 탭에서 불러옴 ----------
+const DEFAULT_CFG={year:2026,maxDays:20,ncls:8,calStart:"2026-11-23",calEnd:"2027-01-05",selStart:"2026-11-23",selEnd:"2027-01-04",examDay:"2026-11-19",
+  rec:[["2026-11-24","2026-12-04"],["2026-12-09","2026-12-23"]],
+  events:[["2026-11-18","휴일","수능예비소집일"],["2026-11-19","휴일","수학능력시험"],["2026-11-20","휴일","재량휴업일"],["2026-11-23","등교필수","3학년 등교 필수★"],
+    ["2026-12-07","학교행사","롯데월드"],["2026-12-08","학교행사","CGV 구리"],["2026-12-11","2차시험",""],["2026-12-14","2차시험",""],["2026-12-15","2차시험",""],
+    ["2026-12-16","2차시험",""],["2026-12-17","2차시험",""],["2026-12-24","등교권장","등교 (권장)"],["2026-12-25","휴일","성탄절"],
+    ["2026-12-28","학교행사","경복궁/역사박물관"],["2026-12-29","학교행사","경복궁/역사박물관"],["2026-12-30","학교행사","공예박물관"],
+    ["2026-12-31","등교권장","등교 (권장)"],["2027-01-01","휴일","신정"],["2027-01-04","등교필수","등교 필수★ · 정시원서"],["2027-01-05","등교(선택불가)","졸업식"]],
+  teachers:{1:"민별",2:"박필승",3:"이용화",4:"권예란",5:"정형은",6:"정진희",7:"김세연",8:"전혜림"}};
+const TYPE_OF={"휴일":"off","등교필수":"must","학교행사":"ev","행사":"ev","등교권장":"rec","2차시험":"exam","등교(선택불가)":"fixed","등교":"fixed"};
+const INFO={};const EXAM=new Set();const SEL=[];const IDX=new Map();const REC1=[];const REC2=[];const TEACHERS={};
+const CAL={start:"2026-11-23",end:"2027-01-05"};let EXAMDAY="2026-11-19";let CFG_OK=false;
 const CIRC="①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
-
-// 선택 가능한 날: 11/24 ~ 12/31 평일 중 휴일 제외
-const SEL=[];
-{let t=new Date(2026,10,23);const end=new Date(2027,0,4);let n=0;
- while(t<=end){const dw=t.getDay();const k=key(t.getFullYear(),t.getMonth()+1,t.getDate());
-  if(dw>0&&dw<6&&!(INFO[k]&&INFO[k].t==="off")){SEL.push(k);
-    if(!INFO[k]){INFO[k]={t:"field",l:"현장체험"+CIRC[n]};n++}}
-  t.setDate(t.getDate()+1)}}
-const IDX=new Map(SEL.map((k,i)=>[k,i]));
-const REC1=SEL.filter(k=>k>="2026-11-24"&&k<="2026-12-04");
-const REC2=SEL.filter(k=>k>="2026-12-09"&&k<="2026-12-23");
+const isDate=v=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v);
+function applyConfig(c){
+  YEAR=+c.year||YEAR;MAX=+c.maxDays||MAX;NCLS=Math.max(1,Math.min(20,+c.ncls||NCLS));
+  if(isDate(c.calStart))CAL.start=c.calStart;if(isDate(c.calEnd))CAL.end=c.calEnd;if(isDate(c.examDay))EXAMDAY=c.examDay;
+  Object.keys(INFO).forEach(k=>delete INFO[k]);EXAM.clear();SEL.length=0;IDX.clear();REC1.length=0;REC2.length=0;
+  Object.keys(TEACHERS).forEach(k=>delete TEACHERS[k]);Object.assign(TEACHERS,c.teachers||{});
+  for(const e of (c.events||[])){const [d,ty,lab]=e;if(!isDate(d))continue;const t=TYPE_OF[String(ty||"").replace(/\s/g,"")]||"ev";
+    if(t==="exam"){EXAM.add(d);continue}INFO[d]={t,l:String(lab||ty||"")}}
+  const selStart=isDate(c.selStart)?c.selStart:CAL.start,selEnd=isDate(c.selEnd)?c.selEnd:CAL.end;
+  let t=parse(selStart);const end=parse(selEnd);let n=0;
+  while(t<=end){const dw=t.getDay();const k=key(t.getFullYear(),t.getMonth()+1,t.getDate());
+    if(dw>0&&dw<6&&!(INFO[k]&&(INFO[k].t==="off"||INFO[k].t==="fixed"))){SEL.push(k);
+      if(!INFO[k]){INFO[k]={t:"field",l:"현장체험"+(n<20?CIRC[n]:"("+(n+1)+")")};n++}}
+    t.setDate(t.getDate()+1)}
+  SEL.forEach((k,i)=>IDX.set(k,i));
+  const rec=Array.isArray(c.rec)?c.rec:[];
+  if(rec[0]&&isDate(rec[0][0])&&isDate(rec[0][1]))SEL.filter(k=>k>=rec[0][0]&&k<=rec[0][1]).forEach(k=>REC1.push(k));
+  if(rec[1]&&isDate(rec[1][0])&&isDate(rec[1][1]))SEL.filter(k=>k>=rec[1][0]&&k<=rec[1][1]).forEach(k=>REC2.push(k));
+}
+function calMonths(){const out=[];const a=parse(CAL.start),b=parse(CAL.end);let y=a.getFullYear(),m=a.getMonth();
+  while(y<b.getFullYear()||(y===b.getFullYear()&&m<=b.getMonth())){const last=new Date(y,m+1,0).getDate();
+    const from=(y===a.getFullYear()&&m===a.getMonth())?a.getDate():1;const to=(y===b.getFullYear()&&m===b.getMonth())?b.getDate():last;
+    out.push([y,m+1,from,to]);m++;if(m>11){m=0;y++}}
+  return out}
+applyConfig(DEFAULT_CFG);
 
 function periods(dates){
   const s=[...new Set(dates)].filter(k=>IDX.has(k)).sort((a,b)=>IDX.get(a)-IDX.get(b));
@@ -462,7 +492,7 @@ const $=id=>document.getElementById(id);
 function renderCal(){renderCalInto($("cal"),picked,k=>{picked.has(k)?picked.delete(k):picked.add(k);dirty=true;renderAll()})}
 function renderCalInto(host,set,onToggle){
   host.textContent="";
-  const months=[[2026,11,23,30],[2026,12,1,31],[2027,1,1,5]];
+  const months=calMonths();
   for(const [y,m,from,to] of months){
     const box=document.createElement("div");box.className="month";
     const h=document.createElement("h3");h.textContent=`${m}월`;box.append(h);
@@ -666,7 +696,7 @@ function renderClass(){
     const ps=psOf(r);const tr=document.createElement("tr");if(!r.submitted)tr.className="unsub";
     const td=(t)=>{const c=document.createElement("td");c.textContent=t;tr.append(c);return c};
     if(all)td(r.cls?r.cls+"반":"-");
-    td(r.no??"-");td(r.name||"");td(usedOf(r)?usedOf(r)+"일":"-");td(r.dates.length+"일");td(totalOf(r)+"일");
+    td(r.no??"-");{const c=document.createElement("td");if(r.dates.length){const nb=document.createElement("button");nb.type="button";nb.className="namebtn";nb.textContent=r.name||r.rosterName||"";nb.title="서류 보기";nb.onclick=()=>openViewer(r);c.append(nb)}else c.textContent=r.name||r.rosterName||"";tr.append(c)}td(usedOf(r)?usedOf(r)+"일":"-");td(r.dates.length+"일");td(totalOf(r)+"일");
     for(let i=0;i<4;i++){const p=ps[i];const c=td(p?periodText(p):"");if(p&&p.past)c.className="pastcell"}
     const sc=document.createElement("td");const pill=document.createElement("span");
     if(!r.submitted){pill.className="pill warn";pill.textContent=r.dates.length?"미제출 · 명단 일정":"미제출"}
@@ -691,6 +721,9 @@ function renderClass(){
     if(r.submitted){const pb=document.createElement("button");pb.className="linkbtn";pb.style.color="var(--muted)";pb.textContent="비번초기화";
       pb.onclick=async()=>{try{await run("tResetPin",PW,r.id);cstatus(`${r.no}번 비밀번호를 초기화했어요. 학생이 다음에 제출할 때 새 비밀번호를 정하면 돼요.`)}catch(e){cstatus(e.msg||"초기화하지 못했어요.")}};dc.prepend(pb)}
     const eb=document.createElement("button");eb.className="linkbtn";eb.style.color="var(--plum)";eb.textContent="수정";eb.onclick=()=>openEdit(r);dc.prepend(eb);
+    if(r.dates.length){for(const [kind,lab] of [["report","보고서"],["plan","신청서"]]){const b=document.createElement("button");b.className="linkbtn";b.style.color="var(--field)";b.textContent=lab;
+      b.title=`${r.no}번 ${r.name||r.rosterName||""} ${lab} 인쇄`;b.onclick=()=>printStudent(r,[kind]);dc.prepend(b)}
+      const vb=document.createElement("button");vb.className="linkbtn";vb.style.color="var(--plum)";vb.style.fontWeight="700";vb.textContent="서류보기";vb.onclick=()=>openViewer(r);dc.prepend(vb)}
     const ib=document.createElement("button");ib.className="linkbtn";ib.style.color="var(--event)";ib.textContent="사진";
     ib.onclick=()=>openImage(infoFromRow(r));dc.prepend(ib);
     tr.append(dc);body.append(tr);
@@ -774,7 +807,7 @@ $("padd").onclick=()=>{
   const a=$("pfrom").value,b=$("pto").value||a;const n=parseFloat($("pn").value);
   if(!a){pstatus("시작일을 골라 주세요.","err");return}
   if(b<a){pstatus("종료일이 시작일보다 빨라요.","err");return}
-  if(a>="2026-11-19"||b>="2026-11-19"){pstatus("수능 이후 기간은 학생이 달력에서 직접 신청해요. 수능 전 날짜만 입력해 주세요.","err");return}
+  if(a>=EXAMDAY||b>=EXAMDAY){pstatus("수능 이후 기간은 학생이 달력에서 직접 신청해요. 수능 전 날짜만 입력해 주세요.","err");return}
   if(!(n>0)||Math.round(n*2)!==n*2){pstatus("일수는 0.5일 단위로 입력해 주세요.","err");return}
   const rec=usedMap[pSel]||{past:[]};
   if(rec.past.some(p=>!(b<p.from||a>p.to))){pstatus("이미 입력된 기간과 겹쳐요. 기존 기록을 확인해 주세요.","err");return}
@@ -788,7 +821,7 @@ function infoFromRow(r){const rec=recOf(r);return{cls:r.cls,no:r.no,name:r.name|
 function infoMine(){return{cls:+$("cls").value||"",no:+$("no").value||"",name:$("nm").value.trim(),dates:[...picked],past:myPast,used:usedDays}}
 function rr(x,c,y,w,h,r){x.beginPath();x.moveTo(c+r,y);x.arcTo(c+w,y,c+w,y+h,r);x.arcTo(c+w,y+h,c,y+h,r);x.arcTo(c,y+h,c,y,r);x.arcTo(c,y,c+w,y,r);x.closePath()}
 function dayKind(k,on){const info=INFO[k];
-  if(k==="2027-01-05")return{f:SKY,t:SKY_INK,l:"졸업식"};
+  if(info&&info.t==="fixed")return{f:SKY,t:SKY_INK,l:info.l};
   if(info&&info.t==="off")return{f:OFF,t:OFF_INK,l:info.l};
   if(on)return{f:GRN,t:GRN_INK,l:"체험학습",must:!!(info&&info.t==="must")};
   if(info&&info.t==="must")return{f:SKY,t:MUST,l:"등교 필수★",must:true};
@@ -798,7 +831,7 @@ async function drawCalendar(I){
   try{await Promise.all([document.fonts.load('700 40px "IBM Plex Sans KR"'),document.fonts.load('400 24px "IBM Plex Sans KR"'),document.fonts.load('40px "Do Hyeon"')])}catch(e){}
   const F='"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif',DF='"Do Hyeon",'+F;
   const W=1080,P=56,G=10,CW=(W-2*P-4*G)/5,CH=100;const on=new Set(I.dates);
-  const months=[[2026,11,23,30],[2026,12,1,31],[2027,1,1,5]];
+  const months=calMonths();
   const layout=months.map(([y,m,from,to])=>{const cells=[];let lead=new Date(y,m-1,from).getDay()-1;if(lead<0||lead>4)lead=0;
     let col=lead,row=0;for(let d=from;d<=to;d++){const t=new Date(y,m-1,d);const w=t.getDay();if(w===0||w===6){continue}
       col=w-1;if(cells.length&&col<=cells[cells.length-1].col)row++;cells.push({d,col,row,k:key(y,m,d)})}
@@ -861,7 +894,6 @@ $("zipimg").onclick=async()=>{
 
 // ---------- 신청서·보고서 ----------
 const TYPES=["가족 여행","친인척 방문","답사·견학 활동","체험 활동"];
-const TEACHERS={1:"민별",2:"박필승",3:"이용화",4:"권예란",5:"정형은",6:"정진희",7:"김세연",8:"전혜림"};
 function cumFor(used,dates,start){let c=+used||0;for(const p of periods(dates))if(p.start<=start)c+=p.n;return Math.round(c*10)/10}
 const FORM={
   plan:{src:FORM_PLAN_IMG,
@@ -990,7 +1022,7 @@ function openStudentDoc(kind,start){
   if(!$("cls").value||!$("no").value||!$("nm").value.trim()){setStatus("반, 번호, 이름을 먼저 입력해 주세요.","err");return}
   if(!openDoc(studentCtx(),kind,start))setStatus("달력에서 체험학습 날짜를 먼저 골라 주세요.","err")}
 $("docopen").onclick=()=>openStudentDoc(null,null);
-function closeDoc(){readFields();$("docmodal").hidden=true;if(docCtx&&!docCtx.teacher)renderSummary()}
+function closeDoc(){readFields();$("docmodal").hidden=true;if(docCtx&&!docCtx.teacher)renderSummary();else if(!$("viewmodal").hidden)renderViewer()}
 $("docclose").onclick=closeDoc;
 $("docmodal").addEventListener("click",e=>{if(e.target===$("docmodal"))closeDoc()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("docmodal").hidden){e.preventDefault();closeDoc()}});
@@ -1016,6 +1048,28 @@ async function docFor(kind,ctx,start){const ps=ctx.periods();const p=ps.find(q=>
   return(await drawForm(kind,{name:ctx.name,cls:ctx.cls,no:ctx.no,period:p,f,cum:p?cumFor(ctx.used(),ctx.dates(),p.start):null})).cv}
 async function pagesToPdf(canvases){const J=await loadPDF();const pdf=new J.jsPDF({unit:"mm",format:"a4",compress:true});
   canvases.forEach((cv,i)=>{if(i)pdf.addPage();pdf.addImage(cv.toDataURL("image/jpeg",0.82),"JPEG",0,0,210,297)});return pdf.output("blob")}
+function printPages(canvases,title){return new Promise((ok,no)=>{
+  if(!canvases.length)return no(new Error("empty"));
+  const old=document.getElementById("printframe");if(old)old.remove();
+  const f=document.createElement("iframe");f.id="printframe";f.setAttribute("aria-hidden","true");
+  f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";document.body.append(f);
+  const d=f.contentWindow.document;d.open();
+  d.write('<!doctype html><html><head><meta charset="utf-8"><title>'+String(title||"체험학습 서류").replace(/[<>&]/g,"")+'</title><style>@page{size:A4;margin:0}html,body{margin:0;padding:0}img{display:block;width:210mm;height:296.5mm;break-after:page;page-break-after:always}img:last-child{break-after:auto;page-break-after:auto}</style></head><body></body></html>');d.close();
+  const imgs=canvases.map(cv=>{const im=d.createElement("img");im.src=cv.toDataURL("image/jpeg",0.92);d.body.append(im);return im});
+  Promise.all(imgs.map(im=>im.decode?im.decode().catch(()=>{}):Promise.resolve())).then(()=>{
+    setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print();ok()}catch(e){no(e)}},150)})})}
+function studentCtx_(r){return{name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods(r.dates),dates:()=>r.dates,used:()=>recOf(r).days||0,forms:r.forms||{}}}
+async function pagesFor(r,kinds){const ctx=studentCtx_(r);const out=[];for(const p of periods(r.dates))for(const k of kinds)out.push(await docFor(k,ctx,p.start));return out}
+async function printStudent(r,kinds){
+  const nm=`${r.no}번 ${r.name||r.rosterName||""}`;cstatus(`${nm} 서류를 준비하는 중…`);
+  try{const pages=await pagesFor(r,kinds);if(!pages.length){cstatus(`${nm}: 체험학습 일정이 없어요.`);return}
+    await printPages(pages,`3-${r.cls} ${nm} ${kinds[0]==="plan"?"신청서":"보고서"}`);
+    cstatus(`${nm} ${kinds[0]==="plan"?"신청서·통보서":"결과보고서"} ${pages.length}장 인쇄 창을 열었어요.${r.submitted?"":" (아직 제출 전이라 시트에 적힌 일정 기준이에요)"}`)}
+  catch(e){cstatus("인쇄 창을 열지 못했어요. ‘우리반 서류 PDF’로 저장한 뒤 인쇄해 주세요.")}}
+$("docprint").onclick=async()=>{await renderDoc();if(!docCanvas)return;
+  try{await printPages([docCanvas],docFileBase());docStatus("인쇄 창을 열었어요.","ok")}catch(e){docStatus("인쇄 창을 열지 못했어요. PDF로 저장한 뒤 인쇄해 주세요.","err")}};
+$("docprint2").onclick=async()=>{readFields();if(!docCtx)return;const k=curKey();
+  try{await printPages([await docFor("plan",docCtx,k),await docFor("report",docCtx,k)],docFileBase());docStatus("인쇄 창을 열었어요.","ok")}catch(e){docStatus("인쇄 창을 열지 못했어요. PDF로 저장한 뒤 인쇄해 주세요.","err")}};
 $("docpdf2").onclick=async()=>{readFields();if(!docCtx)return;if(!dl){docStatus("여기서는 파일 저장이 안 돼요.","err");return}
   const k=curKey();docStatus("PDF를 만드는 중…","");
   try{const blob=await pagesToPdf([await docFor("plan",docCtx,k),await docFor("report",docCtx,k)]);
@@ -1064,10 +1118,75 @@ $("editdoc").onclick=()=>{
       if(editDirty)await saveEditDates();
       await run("tSavePlan",PW,r.id,{forms:JSON.parse(JSON.stringify(editForms))});loadTeacher()}},"plan",null)};
 
+// ---------- 학생별 서류 보기 ----------
+let viewRow=null,viewSeq=0;
+function vStatus(t,c){const e=$("viewstatus");e.textContent=t;e.className="status"+(c?" "+c:"")}
+function filled(f){return !!f&&Object.keys(f).some(k=>k!=="date"&&k!=="type"&&String(f[k]||"").trim())}
+function openViewer(r){viewRow=Object.assign({},r,{forms:JSON.parse(JSON.stringify(r.forms||{}))});
+  $("viewtitle").textContent=`${r.cls}반 ${r.no}번 ${r.name||r.rosterName||""} 서류`;vStatus(r.submitted?"":"아직 제출하지 않은 학생이라 시트에 적힌 일정 기준으로 보여 드려요.","");
+  $("viewmodal").hidden=false;$("viewclose").focus();renderViewer()}
+async function renderViewer(){
+  const r=viewRow;if(!r)return;const my=++viewSeq;const box=$("viewbody");box.textContent="";
+  const ctx=studentCtx_(r);const ps=periods(r.dates);
+  if(!ps.length){const p=document.createElement("p");p.className="hint";p.textContent="체험학습 일정이 없어요.";box.append(p);return}
+  for(const [i,p] of ps.entries()){
+    const sec=document.createElement("section");sec.className="vperiod";
+    const h=document.createElement("h3");h.textContent=`${i+1}차 ${periodText(p)}`;sec.append(h);
+    const grid=document.createElement("div");grid.className="vdocs";sec.append(grid);box.append(sec);
+    for(const [kind,lab] of [["plan","신청서·통보서"],["report","결과보고서"]]){
+      const F=(r.forms[p.start]||{})[kind];const ok=filled(F);
+      const card=document.createElement("div");card.className="vdoc";
+      const head=document.createElement("div");head.className="vdoc-head";
+      const b=document.createElement("b");b.textContent=lab;
+      const pill=document.createElement("span");pill.className="pill "+(ok?"ok":"warn");pill.textContent=ok?"작성함":"아직 안 씀";
+      const t=document.createElement("span");t.style.display="inline-flex";t.style.gap="6px";t.style.alignItems="center";t.append(b,pill);head.append(t);card.append(head);
+      const img=document.createElement("img");img.alt=`${lab} 미리보기`;card.append(img);
+      const act=document.createElement("div");act.className="actions";
+      const mk=(txt,fn,pri)=>{const x=document.createElement("button");x.type="button";x.className="btn"+(pri?" primary":"");x.textContent=txt;x.onclick=fn;act.append(x)};
+      mk("인쇄",async()=>{try{await printPages([await docFor(kind,ctx,p.start)],`${r.no}번 ${r.name||""} ${lab}`);vStatus("인쇄 창을 열었어요.","ok")}catch(e){vStatus("인쇄 창을 열지 못했어요. PDF로 저장해 주세요.","err")}},true);
+      mk("PDF",async()=>{try{await dl.save({filename:`체험학습${kind==="plan"?"신청서":"보고서"}_3-${r.cls}_${r.no}번_${r.name||""}_${short(p.start).replace("/","월")}일.pdf`,data:await pagesToPdf([await docFor(kind,ctx,p.start)])});vStatus("PDF로 저장했어요.","ok")}catch(e){vStatus("PDF를 만들지 못했어요.","err")}});
+      mk("수정",()=>openTeacherDoc(r,kind,p.start));
+      card.append(act);grid.append(card);
+      docFor(kind,ctx,p.start).then(cv=>{if(my===viewSeq){img.src=cv.toDataURL("image/jpeg",0.85);img.onclick=()=>{const w=window.open();if(w){w.document.write('<title>'+lab+'</title><img src="'+img.src+'" style="width:100%;max-width:900px">');w.document.close()}}}}).catch(()=>{});
+    }
+  }
+}
+function openTeacherDoc(r,kind,start){
+  const base=rows.find(x=>x.id===r.id)||r;editRow=base;editSet=new Set(r.dates);editForms=viewRow&&viewRow.id===r.id?viewRow.forms:JSON.parse(JSON.stringify(r.forms||{}));editDirty=false;
+  openDoc({teacher:true,name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods([...editSet]),dates:()=>[...editSet],used:()=>recOf(r).days||0,forms:editForms,
+    save:async()=>{if(!r.submitted)throw{msg:"아직 제출하지 않은 학생이라 입력 내용은 저장되지 않아요. 인쇄나 PDF로는 저장할 수 있어요."};
+      await run("tSavePlan",PW,r.id,{forms:JSON.parse(JSON.stringify(editForms))});loadTeacher()}},kind,start)}
+$("viewprintall").onclick=async()=>{if(!viewRow)return;try{const pg=await pagesFor(viewRow,["plan","report"]);await printPages(pg,`${viewRow.no}번 ${viewRow.name||""} 체험학습 서류`);vStatus(`${pg.length}장 인쇄 창을 열었어요.`,"ok")}catch(e){vStatus("인쇄 창을 열지 못했어요. PDF로 저장해 주세요.","err")}};
+$("viewpdfall").onclick=async()=>{if(!viewRow)return;const r=viewRow;try{vStatus("PDF를 만드는 중…","");await dl.save({filename:`체험학습서류_3-${r.cls}_${r.no}번_${r.name||""}.pdf`,data:await pagesToPdf(await pagesFor(r,["plan","report"]))});vStatus("PDF로 저장했어요.","ok")}catch(e){vStatus("PDF를 만들지 못했어요.","err")}};
+function closeViewer(){$("viewmodal").hidden=true;viewRow=null}
+$("viewclose").onclick=closeViewer;
+$("viewmodal").addEventListener("click",e=>{if(e.target===$("viewmodal"))closeViewer()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!e.defaultPrevented&&!$("viewmodal").hidden&&$("docmodal").hidden){e.preventDefault();closeViewer()}});
+
+$("bulkprint").onclick=async()=>{
+  if(!viewCls){cstatus("먼저 ‘내 담임 반’을 골라 주세요.");return}
+  const kind=$("bulkkind").value;const kinds=kind==="plan"?["plan"]:kind==="report"?["report"]:["plan","report"];
+  const list=viewList().filter(r=>r.dates.length);if(!list.length){cstatus("체험학습 일정이 있는 학생이 없어요.");return}
+  $("bulkprint").disabled=true;
+  try{const pages=[];let i=0;for(const r of list){i++;cstatus(`서류 만드는 중… ${i}/${list.length}명`);pages.push(...await pagesFor(r,kinds))}
+    await printPages(pages,`3-${viewCls}반 체험학습 서류`);cstatus(`${list.length}명, ${pages.length}장 인쇄 창을 열었어요. 학생 번호순으로 나옵니다.`)}
+  catch(e){cstatus("인쇄 창을 열지 못했어요. ‘우리반 서류 PDF’로 저장한 뒤 인쇄해 주세요.")}
+  finally{$("bulkprint").disabled=false}};
 $("bulkpdf").onclick=async()=>{
   if(!viewCls){cstatus("먼저 ‘내 담임 반’을 골라 주세요.");return}
   if(!dl){cstatus("이 화면에서는 파일 저장을 쓸 수 없어요.");return}
-  const kind=$("bulkkind").value;const kinds=kind==="both"?["plan","report"]:[kind];
+  const kind=$("bulkkind").value;
+  if(kind==="each"){const list=viewList().filter(r=>r.dates.length);if(!list.length){cstatus("체험학습 일정이 있는 학생이 없어요.");return}
+    $("bulkpdf").disabled=true;
+    try{const Z=await loadZip();const z=new Z();let i=0;
+      for(const r of list){i++;cstatus(`학생별 PDF 만드는 중… ${i}/${list.length}명`);
+        z.file(`${pad(r.no)}번_${(r.name||r.rosterName||"").replace(/[\\/:*?"<>|]/g,"")}_체험학습서류.pdf`,await pagesToPdf(await pagesFor(r,["plan","report"])))}
+      await dl.save({filename:`3-${viewCls}반_학생별_체험학습서류.zip`,data:await z.generateAsync({type:"blob"})});
+      cstatus(`${list.length}명 학생별 PDF(신청서+보고서)를 압축 파일로 저장했어요.`)}
+    catch(e){cstatus("파일을 만들지 못했어요. 잠시 후 다시 눌러 주세요.")}
+    finally{$("bulkpdf").disabled=false}
+    return}
+  const kinds=kind==="both"?["plan","report"]:[kind];
   const list=viewList().filter(r=>r.dates.length);if(!list.length){cstatus("체험학습 일정이 있는 학생이 없어요.");return}
   $("bulkpdf").disabled=true;
   try{const pages=[];let i=0;
@@ -1206,11 +1325,11 @@ async function drawTeacherCal(list,cls){
   const anyUnsub=studs.some(r=>!r.submitted);
   const cv=document.createElement("canvas");cv.width=W;cv.height=100;let x=cv.getContext("2d");
   const NAMEF=`500 18px ${F}`;
-  const months=[[2026,11,23,30],[2026,12,1,31],[2027,1,1,5]];
+  const months=calMonths();
   const plan=months.map(([y,m,from,to])=>{const cells=[];let row=0;
     for(let d=from;d<=to;d++){const t=new Date(y,m-1,d);const w=t.getDay();if(w===0||w===6)continue;
       const col=w-1;if(cells.length&&col<=cells[cells.length-1].col)row++;
-      const k=key(y,m,d);const info=INFO[k];const off=info&&info.t==="off"&&k!=="2027-01-05";
+      const k=key(y,m,d);const info=INFO[k];const off=info&&info.t==="off";
       const go=off?[]:studs.filter(r=>!r.dates.includes(k));const trip=off?0:N-go.length;
       x.font=NAMEF;const items=go.map(r=>`${r.no} ${r.name||r.rosterName||""}${r.submitted?"":"*"}`);
       const lines=off?[]:wrapItems(x,items,CW-2*PADX,16);
@@ -1236,7 +1355,7 @@ async function drawTeacherCal(list,cls){
       rr(x,cx,cy,CW,ch,12);x.fillStyle=c.off?OFF:SKY;x.fill();if(must){x.lineWidth=3;x.strokeStyle=MUST;x.stroke()}
       x.fillStyle=c.off?OFF_INK:SKY_INK;x.font=`700 28px ${F}`;x.fillText(String(c.d),cx+PADX,cy+38);
       const dw=x.measureText(String(c.d)).width;
-      const lab=c.off?c.info.l:(c.k==="2027-01-05"?"졸업식":(c.info&&c.info.t!=="field"?c.info.l.replace("현장체험",""):""));
+      const lab=c.off?c.info.l:(c.info&&c.info.t!=="field"?c.info.l.replace("현장체험",""):"");
       if(lab){x.font=`600 17px ${F}`;x.fillStyle=must?MUST:(c.off?OFF_INK:SKY_INK);let t=lab;while(x.measureText(t).width>CW-dw-PADX*3-0&&t.length>2)t=t.slice(0,-1);x.fillText(t,cx+PADX+dw+10,cy+36)}
       if(!c.off){
         x.font=`700 22px ${F}`;const goT=`등교 ${c.go.length}명`;x.fillStyle=INK;x.fillText(goT,cx+PADX,cy+66);
@@ -1301,8 +1420,23 @@ $("xlsx").onclick=async()=>{
 function setBadge(kind){const b=$("badge");b.hidden=false;
   if(kind==="teacher"){b.className="badge teacher";b.textContent="담임용"}
   else{if(!hashCls()){b.hidden=true;return}b.className="badge";b.textContent=`3학년 ${hashCls()}반`}}
-renderAll();setStatus("","");setH1();
+$("cal").innerHTML='<p class="hint">학사일정을 불러오는 중…</p>';setStatus("","");setH1();
 if(hashCls())setBadge("student");
+function afterConfig(){
+  const cv=$("cls").value,mv=$("mycls").value;
+  fillCls($("cls"),["","반 선택"]);fillCls($("mycls"),["","반 선택"]);
+  if(cv)$("cls").value=cv;if(mv)$("mycls").value=mv;
+  if(hashCls()){$("cls").value=hashCls();$("cls").disabled=true}
+  for(const k of [...picked])if(!IDX.has(k))picked.delete(k);
+  $("pick1").hidden=!REC1.length;$("pick2").hidden=!REC2.length;
+  if(REC1.length)$("pick1").textContent=`권장 1차 기간 채우기 (${short(REC1[0])}~${short(REC1[REC1.length-1])})`;
+  if(REC2.length)$("pick2").textContent=`권장 2차 기간 채우기 (${short(REC2[0])}~${short(REC2[REC2.length-1])})`;
+  const pm=`${YEAR}-03-01`,px=(()=>{const d=parse(EXAMDAY);d.setDate(d.getDate()-1);return key(d.getFullYear(),d.getMonth()+1,d.getDate())})();
+  ["pfrom","pto"].forEach(id=>{$(id).min=pm;$(id).max=px});
+  ["p_date","r_date"].forEach(id=>{$(id).min=pm;$(id).max=`${YEAR+1}-02-28`});
+  renderAll();setH1();if(isTeacher)renderClass()}
+const cfgReady=run("getConfig").then(c=>{if(c){applyConfig(c);CFG_OK=true}}).catch(()=>{
+  setStatus("학사일정을 불러오지 못해 기본 일정으로 보여 드려요. 인터넷 연결을 확인하고 새로 고침해 주세요.","err")}).then(afterConfig);
 async function loadTeacher(){
   try{const d=await run("tAll",PW);
     rows=(d.plans||[]).map(v=>({id:v.id,cls:+v.cls||0,no:+v.no,name:v.name,forms:v.forms&&typeof v.forms==="object"?v.forms:{},dates:Array.isArray(v.dates)?v.dates.filter(k=>IDX.has(k)):[],updatedAt:v.updatedAt}));
@@ -1317,7 +1451,7 @@ async function enterTeacher(){
   if(myCls){$("mycls").value=myCls;viewCls=myCls}
   if(!myCls)$("setuphint").textContent="처음 오셨다면 ‘내 담임 반’부터 골라 주세요. 그다음 ‘우리반 학생용 링크 복사’로 받은 주소를 학생들에게 보내면 됩니다.";
   $("tabs").hidden=false;showTab("class");renderClass();cstatus("불러오는 중…");await loadTeacher();cstatus("");
-  clearInterval(pollTimer);pollTimer=setInterval(()=>{if(document.visibilityState==="visible"&&$("editmodal").hidden&&$("docmodal").hidden)loadTeacher()},30000)}
+  clearInterval(pollTimer);pollTimer=setInterval(()=>{if(document.visibilityState==="visible"&&$("editmodal").hidden&&$("docmodal").hidden&&$("viewmodal").hidden)loadTeacher()},30000)}
 $("tlogin").onclick=async()=>{const pw=$("tpw").value.trim();if(!pw){$("tloginst").textContent="비밀번호를 입력해 주세요.";return}$("tloginst").textContent="확인 중…";
   try{const ok=await run("tLogin",pw);if(!ok){$("tloginst").textContent="비밀번호가 맞지 않아요.";return}
     PW=pw;try{sessionStorage.setItem("ft-pw",pw)}catch(e){}$("tloginst").textContent="";enterTeacher()}
@@ -1325,6 +1459,7 @@ $("tlogin").onclick=async()=>{const pw=$("tpw").value.trim();if(!pw){$("tloginst
 $("toteacher").onclick=()=>{$("view-me").hidden=true;$("view-class").hidden=true;$("view-gate").hidden=false;$("toteacher").hidden=true;$("tpw").focus()};
 $("tpw").addEventListener("keydown",e=>{if(e.key==="Enter")$("tlogin").click()});
 (async()=>{
+  await cfgReady;
   if(hashCls()){$("toteacher").hidden=true;setBadge("student");return}
   if(BOOT.page==="teacher"){
     $("view-me").hidden=true;
