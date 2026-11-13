@@ -106,6 +106,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--event);outline-
 .sheet td.c{width:30px;height:30px;cursor:pointer}
 .sheet td.c.on{background:var(--field);color:var(--field-ink)}
 .sheet td.c.on::after{content:"체험";font-size:10px;font-weight:700}
+.sheet tr.assume td.c.on{background:var(--field-soft);color:var(--field)}
+.sheet tr.assume td.st{color:var(--warn);font-weight:700}
+.sheet td.st .rowall{margin:2px 0;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:5px;font:600 10.5px var(--body);padding:1px 5px;cursor:pointer}
 .sheet td.c:hover{box-shadow:inset 0 0 0 2px var(--field)}
 .sheet td.sum{font-weight:700;padding:0 6px;font-variant-numeric:tabular-nums}
 .sheet td.sum.over{color:var(--must)}
@@ -367,14 +370,14 @@ tbody tr:hover{background:var(--line-2)}
     </div>
     <div class="panel">
       <div class="headrow"><h2>반별 등교 인원</h2></div>
-      <p class="hint">1~8반 학생 일정을 모두 모은 표예요. 칸의 숫자는 그날 <b>등교하는 학생 수</b>입니다. 날짜를 누르면 아래 출석부가 그 날짜로 바뀌어요. ‘입력’ 열이 재적보다 적은 반은 아직 일정을 다 넣지 않은 반이라, 등교 인원이 실제보다 많게 보일 수 있어요.</p>
+      <p class="hint">1~8반 학생 일정을 모두 모은 표예요. 칸의 숫자는 그날 <b>등교하는 학생 수</b>입니다. 날짜를 누르면 위 출석부가 그 날짜로 바뀌어요. 일정을 입력하지 않은 학생은 <b>모두 체험학습</b>으로 계산하니, ‘입력’이 재적보다 적은 반은 등교 인원이 실제보다 적게 보일 수 있어요.</p>
       <div class="scroll" id="gradewrap"></div>
     </div>
     <div class="panel">
       <div class="headrow"><h2>일정 입력 (시스템을 쓰지 않은 반용)</h2>
         <div class="actions"><label for="gridcls" class="hint">반 <select id="gridcls" class="sel"></select></label>
           <button class="btn primary" id="gridsave" type="button">저장</button><button class="btn" id="gridaddrow" type="button">줄 추가</button></div></div>
-      <p class="hint">시스템을 쓰지 않는 반도 담임 선생님이 여기서 엑셀처럼 바로 넣을 수 있어요. <b>칸을 누르면 체험학습(초록)</b>, 다시 누르면 등교로 바뀌어요. 누른 채로 끌면 여러 칸이 한 번에 칠해집니다. 이름 칸에는 엑셀에서 복사한 이름 목록을 한 번에 붙여 넣을 수 있어요. 학생이 직접 제출한 줄을 고치면 그 학생 일정도 함께 바뀝니다.</p>
+      <p class="hint">일정을 입력하지 않은 학생은 처음부터 <b>모든 날이 체험학습(연한 초록)</b>으로 채워져 있어요. <b>등교하는 날만 눌러서 흰 칸으로</b> 바꾸면 됩니다. 매일 등교하는 학생은 상태 칸의 <b>‘모두 등교’</b>를 한 번 누르면 됩니다. 누른 채로 끌면 여러 칸이 한 번에 바뀌어요. 이름 칸에는 엑셀에서 복사한 이름 목록을 한 번에 붙여 넣을 수 있어요. ‘저장’을 누르면 출석부와 등교 인원에 바로 반영됩니다. 학생이 직접 제출한 줄을 고치면 그 학생 일정도 함께 바뀝니다.</p>
       <p class="status" id="gridstatus" style="min-height:1.5em;margin:0">&nbsp;</p>
       <div class="scroll" id="gridwrap"></div>
     </div>
@@ -1194,7 +1197,7 @@ $("editdoc").onclick=()=>{
 let attDate="",gridCls=0,gridRows=[],gridDirty=false,gridPaint=null;
 function gStatus(t){$("gstatus").textContent=t}
 function enteredOf(r){const u=usedMap[`${r.cls}-${r.no}`];return r.submitted||!!(u&&(u.gridAt||(u.pre&&u.pre.length)))}
-function goingOn(list,k){return list.filter(r=>!r.dates.includes(k))}
+function goingOn(list,k){return list.filter(r=>enteredOf(r)&&!r.dates.includes(k))}
 function dateLabel(k){const d=parse(k);return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`}
 function renderGrade(full){
   const all=allStudents();const byC={};for(let c=1;c<=NCLS;c++)byC[c]=all.filter(r=>r.cls===c);
@@ -1235,8 +1238,8 @@ function renderAttend(byC){
   const sum=document.createElement("p");sum.className="attsum";
   sum.append(`${dateLabel(attDate)} 등교 `);const bb=document.createElement("b");bb.textContent=total;sum.append(bb,"명");
   const extra=[...data.filter(d=>d.go.length).map(d=>`${d.cls}반 ${d.go.length}`)].join(" · ");const ex=document.createElement("span");ex.className="hint";ex.textContent="  ("+extra+")"+(INFO[attDate]&&INFO[attDate].t!=="field"?" · "+INFO[attDate].l:"");sum.append(ex);w.append(sum);
-  const inc=data.reduce((a,d)=>a+d.go.filter(r=>!enteredOf(r)).length,0);
-  if(inc){const n=document.createElement("p");n.className="note";n.textContent=`일정이 아직 입력되지 않은 학생 ${inc}명은 ‘등교’로 넣었어요. 비고에 ‘일정 미입력’으로 표시됩니다.`;w.append(n)}
+  const inc=data.reduce((a,d)=>a+d.incomplete,0);
+  if(inc){const n=document.createElement("p");n.className="note";n.textContent=`일정이 입력되지 않은 학생 ${inc}명은 모두 체험학습으로 보고 출석부에서 뺐어요. (${data.filter(d=>d.incomplete).map(d=>`${d.cls}반 ${d.incomplete}명`).join(", ")}) 아래 ‘일정 입력’에서 등교하는 날을 골라 주면 출석부에 들어갑니다.`;w.append(n)}
   const sc=document.createElement("div");sc.className="scroll";const t=document.createElement("table");t.className="atttable";
   t.innerHTML="<thead><tr><th>연번</th><th>반</th><th>번호</th><th>이름</th><th>출석</th><th>비고</th></tr></thead>";const tb=document.createElement("tbody");let seq=0;
   for(const d of data)for(const r of d.go){seq++;const tr=document.createElement("tr");
@@ -1283,7 +1286,7 @@ function renderGrid(){
   fillGridCls();const c=gridCls;const list=allStudents().filter(r=>r.cls===c);
   const maxNo=Math.max(list.length?Math.max(...list.map(r=>+r.no||0)):0,gridRows.length&&gridRows[0].cls===c?gridRows.length:0,1);
   const byNo={};list.forEach(r=>{byNo[r.no]=r});
-  gridRows=[];for(let n=1;n<=maxNo;n++){const r=byNo[n];gridRows.push({cls:c,no:n,name:r?(r.name||r.rosterName||""):"",orig:r?(r.name||r.rosterName||""):"",dates:new Set(r?r.dates:[]),origDates:r?r.dates.slice().sort().join(","):"",submitted:!!(r&&r.submitted),entered:!!(r&&enteredOf(r)),used:r?(recOf(r).days||0):0})}
+  gridRows=[];for(let n=1;n<=maxNo;n++){const r=byNo[n];const ent=!!(r&&enteredOf(r));const init=ent?r.dates:SEL;gridRows.push({cls:c,no:n,name:r?(r.name||r.rosterName||""):"",orig:r?(r.name||r.rosterName||""):"",dates:new Set(init),origDates:init.slice().sort().join(","),submitted:!!(r&&r.submitted),entered:ent,used:r?(recOf(r).days||0):0})}
   gridDirty=false;drawGrid();gridStatus("")}
 function drawGrid(){
   const w=$("gridwrap");w.textContent="";const t=document.createElement("table");t.className="sheet";
@@ -1298,24 +1301,29 @@ function drawGrid(){
     inp.oninput=()=>{g.name=inp.value;markDirty(tr,g)};
     inp.onpaste=e=>{const txt=(e.clipboardData||window.clipboardData).getData("text");if(!/\n/.test(txt.trim()))return;e.preventDefault();
       const names=txt.replace(/\r/g,"").split("\n").map(x=>x.split("\t").pop().trim()).filter((x,i,arr)=>x||i<arr.length-1);
-      names.forEach((nm,j)=>{let row=gridRows[ri+j];if(!row){row={cls:g.cls,no:gridRows.length+1,name:"",orig:"",dates:new Set(),origDates:"",submitted:false,entered:false,used:0};gridRows.push(row)}row.name=nm});
+      names.forEach((nm,j)=>{let row=gridRows[ri+j];if(!row){row={cls:g.cls,no:gridRows.length+1,name:"",orig:"",dates:new Set(SEL),origDates:"",submitted:false,entered:false,used:0};gridRows.push(row)}row.name=nm});
       gridDirty=true;drawGrid();gridStatus(`이름 ${names.length}개를 붙여 넣었어요. ‘저장’을 눌러 주세요.`,"")};
     b.append(inp);
+    if(!g.entered)tr.classList.add("assume");
     const st=document.createElement("td");st.className="st";st.textContent=g.submitted?"학생제출":g.entered?"담임입력":"미입력";
+    const tg=document.createElement("button");tg.type="button";tg.className="rowall";tg.textContent=g.dates.size?"모두 등교":"모두 체험";tg.title="이 학생의 모든 날을 한 번에 바꿔요";
+    tg.onclick=e=>{e.stopPropagation();const toAll=g.dates.size===0;g.dates=new Set(toAll?SEL:[]);tr.querySelectorAll("td.c").forEach(td=>td.classList.toggle("on",toAll));tg.textContent=toAll?"모두 등교":"모두 체험";updSum(tr,g);markDirty(tr,g)};
+    st.append(document.createElement("br"),tg);
     tr.append(a,b,st);
     SEL.forEach(k=>{const td=document.createElement("td");td.className="c"+(g.dates.has(k)?" on":"");td.dataset.k=k;tr.append(td)});
     const sm=document.createElement("td");sm.className="sum";tr.append(sm);updSum(tr,g);
     tb.append(tr)});
   t.append(tb);w.append(t)}
-function updSum(tr,g){const sm=tr.querySelector("td.sum");const n=g.dates.size;const tot=Math.round((n+g.used)*10)/10;sm.textContent=g.used?`${n}+${g.used}`:String(n);sm.classList.toggle("over",tot>MAX);sm.title=tot>MAX?`${MAX}일 초과`:""}
+function updSum(tr,g){const sm=tr.querySelector("td.sum");const n=g.dates.size;const tot=Math.round((n+g.used)*10)/10;sm.textContent=g.used?`${n}+${g.used}`:String(n);
+  const over=tot>MAX&&!(!g.entered&&g.dates.size===SEL.length);sm.classList.toggle("over",over);sm.title=over?`${MAX}일 초과`:(!g.entered?"아직 입력 전 (모든 날 체험학습으로 가정)":"")}
 function markDirty(tr,g){const ch=g.name!==g.orig||[...g.dates].sort().join(",")!==g.origDates;tr.classList.toggle("dirty",ch);gridDirty=gridRows.some(x=>x.name!==x.orig||[...x.dates].sort().join(",")!==x.origDates);
   if(gridDirty)gridStatus("저장하지 않은 변경이 있어요.","")}
-function paintCell(td,on){const tr=td.parentElement;const g=gridRows[+tr.dataset.ri];const k=td.dataset.k;if(on)g.dates.add(k);else g.dates.delete(k);td.classList.toggle("on",on);updSum(tr,g);markDirty(tr,g)}
+function paintCell(td,on){const tr=td.parentElement;const g=gridRows[+tr.dataset.ri];const k=td.dataset.k;if(on)g.dates.add(k);else g.dates.delete(k);td.classList.toggle("on",on);updSum(tr,g);markDirty(tr,g);const tg=tr.querySelector(".rowall");if(tg)tg.textContent=g.dates.size?"모두 등교":"모두 체험"}
 $("gridwrap").addEventListener("pointerdown",e=>{const td=e.target.closest("td.c");if(!td)return;e.preventDefault();gridPaint=!td.classList.contains("on");paintCell(td,gridPaint);
   if(e.pointerType==="mouse")$("gridwrap").setPointerCapture?.(e.pointerId)});
 $("gridwrap").addEventListener("pointermove",e=>{if(gridPaint===null||e.pointerType!=="mouse")return;const el=document.elementFromPoint(e.clientX,e.clientY);const td=el&&el.closest&&el.closest("td.c");if(td&&td.classList.contains("on")!==gridPaint)paintCell(td,gridPaint)});
 window.addEventListener("pointerup",()=>{gridPaint=null});
-$("gridaddrow").onclick=()=>{gridRows.push({cls:gridCls,no:gridRows.length+1,name:"",orig:"",dates:new Set(),origDates:"",submitted:false,entered:false,used:0});drawGrid();
+$("gridaddrow").onclick=()=>{gridRows.push({cls:gridCls,no:gridRows.length+1,name:"",orig:"",dates:new Set(SEL),origDates:"",submitted:false,entered:false,used:0});drawGrid();
   const last=gridRows[gridRows.length-1];const inp=$(`gn-${last.cls}-${last.no}`);if(inp)inp.focus()};
 let gridPendingCls=0;
 $("gridcls").onchange=()=>{const v=+$("gridcls").value;if(gridDirty){gridPendingCls=v;$("gridcls").value=gridCls;
