@@ -106,6 +106,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--event);outline-
 .sheet td.c{width:30px;height:30px;cursor:pointer}
 .sheet td.c.on{background:var(--field);color:var(--field-ink)}
 .sheet td.c.on::after{content:"체험";font-size:10px;font-weight:700}
+.sheet td.c.on.half,.sheet tr.assume td.c.on.half{background:var(--field-soft);color:var(--field);box-shadow:inset 0 0 0 2px var(--field)}
+.sheet td.c.on.half::after{content:"반일"}
 .sheet tr.assume td.c.on{background:var(--field-soft);color:var(--field)}
 .sheet tr.assume td.st{color:var(--warn);font-weight:700}
 .sheet td.st .rowall{margin:2px 0;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:5px;font:600 10.5px var(--body);padding:1px 5px;cursor:pointer}
@@ -189,6 +191,10 @@ button.day{cursor:pointer;transition:background .12s,border-color .12s}
 button.day:hover{border-color:var(--field)}
 button.day .box{position:absolute;right:6px;bottom:6px;width:16px;height:16px;border:1.5px solid var(--muted);border-radius:4px;display:grid;place-items:center;font-size:11px;line-height:1}
 button.day.on{background:var(--field);border-color:var(--field);color:var(--field-ink)}
+button.day.on.half{background:var(--field-soft);border:2px dashed var(--field);color:var(--ink)}
+button.day.on.half .hl{color:var(--field)!important;font-weight:700}
+button.day.on.half .l,button.day.on.half .n{color:var(--ink)!important;opacity:1}
+button.day.on.half .box{background:var(--sheet);color:var(--field);border-color:var(--field)}
 button.day.must.on{border-color:var(--must);box-shadow:inset 0 0 0 2px var(--must)}
 button.day.on .l,button.day.on .n{color:var(--field-ink);opacity:.9}
 button.day.on .box{border-color:var(--field-ink);background:var(--field-ink);color:var(--field)}
@@ -276,7 +282,8 @@ tbody tr:hover{background:var(--line-2)}
         <div class="actions" style="align-self:flex-end"><button class="btn" id="loadmine" type="button">내 제출 불러오기</button></div>
       </div>
       <div class="legend">
-        <span><i class="sw" style="background:var(--field)"></i>체험학습 선택</span>
+        <span><i class="sw" style="background:var(--field)"></i>체험학습 (한 번 누름)</span>
+        <span><i class="sw" style="background:var(--field-soft);border:1.5px dashed var(--field)"></i>반일 0.5일 (두 번 누름)</span>
         <span><i class="sw" style="background:var(--must-soft)"></i>등교 필수</span>
         <span><i class="sw" style="background:var(--event-soft)"></i>학교 행사</span>
         <span><i class="sw" style="background:var(--line-2)"></i>휴일</span>
@@ -377,7 +384,7 @@ tbody tr:hover{background:var(--line-2)}
       <div class="headrow"><h2>일정 입력 (시스템을 쓰지 않은 반용)</h2>
         <div class="actions"><label for="gridcls" class="hint">반 <select id="gridcls" class="sel"></select></label>
           <button class="btn primary" id="gridsave" type="button">저장</button><button class="btn" id="gridaddrow" type="button">줄 추가</button></div></div>
-      <p class="hint">일정을 입력하지 않은 학생은 처음부터 <b>모든 날이 체험학습(연한 초록)</b>으로 채워져 있어요. <b>등교하는 날만 눌러서 흰 칸으로</b> 바꾸면 됩니다. 매일 등교하는 학생은 상태 칸의 <b>‘모두 등교’</b>를 한 번 누르면 됩니다. 누른 채로 끌면 여러 칸이 한 번에 바뀌어요. 이름 칸에는 엑셀에서 복사한 이름 목록을 한 번에 붙여 넣을 수 있어요. ‘저장’을 누르면 출석부와 등교 인원에 바로 반영됩니다. 학생이 직접 제출한 줄을 고치면 그 학생 일정도 함께 바뀝니다.</p>
+      <p class="hint">일정을 입력하지 않은 학생은 처음부터 <b>모든 날이 체험학습(연한 초록)</b>으로 채워져 있어요. <b>등교하는 날만 눌러서 흰 칸으로</b> 바꾸면 됩니다. 칸은 누를 때마다 <b>등교 → 체험 → 반일(0.5일) → 등교</b> 순서로 바뀌어요. 매일 등교하는 학생은 상태 칸의 <b>‘모두 등교’</b>를 한 번 누르면 됩니다. 누른 채로 끌면 여러 칸이 한 번에 바뀌어요. 이름 칸에는 엑셀에서 복사한 이름 목록을 한 번에 붙여 넣을 수 있어요. ‘저장’을 누르면 출석부와 등교 인원에 바로 반영됩니다. 학생이 직접 제출한 줄을 고치면 그 학생 일정도 함께 바뀝니다.</p>
       <p class="status" id="gridstatus" style="min-height:1.5em;margin:0">&nbsp;</p>
       <div class="scroll" id="gridwrap"></div>
     </div>
@@ -545,18 +552,21 @@ function calMonths(){const out=[];const a=parse(CAL.start),b=parse(CAL.end);let 
   return out}
 applyConfig(DEFAULT_CFG);
 
-function periods(dates){
-  const s=[...new Set(dates)].filter(k=>IDX.has(k)).sort((a,b)=>IDX.get(a)-IDX.get(b));
+function periods(dates,half){
+  const D=new Set([...(dates||[])].filter(k=>IDX.has(k)));const H=new Set([...(half||[])].filter(k=>D.has(k)));
+  const s=[...D].filter(k=>!H.has(k)).sort((a,b)=>IDX.get(a)-IDX.get(b));
   const out=[];
   for(const k of s){const last=out[out.length-1];
-    if(last&&IDX.get(k)===IDX.get(last.end)+1){last.end=k;last.n++}
+    if(last&&!last.half&&IDX.get(k)===IDX.get(last.end)+1){last.end=k;last.n++}
     else out.push({start:k,end:k,n:1})}
-  return out;
+  for(const k of H)out.push({start:k,end:k,n:0.5,half:true});
+  return out.sort((a,b)=>IDX.get(a.start)-IDX.get(b.start));
 }
-const periodText=p=>`${fmt(p.start)} ~ ${fmt(p.end)} (${p.n})일간`;
+const dcount=(dates,half)=>{const D=new Set(dates||[]);return Math.round((D.size-0.5*[...(half||[])].filter(k=>D.has(k)).length)*10)/10};
+const periodText=p=>p.half?`${fmt(p.start)} 반일 (0.5)일`:`${fmt(p.start)} ~ ${fmt(p.end)} (${p.n})일간`;
 
 // ---------- 상태 ----------
-let picked=new Set();
+let picked=new Set();let halfSet=new Set();
 let db=null,user=null,uid=null,isTeacher=false;
 const dl={save:async({filename,data})=>{const blob=data instanceof Blob?data:new Blob([data],{type:"text/plain;charset=utf-8"});
   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.target="_blank";a.rel="noopener";document.body.append(a);a.click();a.remove();
@@ -564,8 +574,9 @@ const dl={save:async({filename,data})=>{const blob=data instanceof Blob?data:new
 const $=id=>document.getElementById(id);
 
 // ---------- 달력 ----------
-function renderCal(){renderCalInto($("cal"),picked,k=>{picked.has(k)?picked.delete(k):picked.add(k);dirty=true;renderAll()})}
-function renderCalInto(host,set,onToggle){
+function cycleDay(set,hs,k){if(!set.has(k))set.add(k);else if(!hs.has(k))hs.add(k);else{set.delete(k);hs.delete(k)}}
+function renderCal(){renderCalInto($("cal"),picked,k=>{cycleDay(picked,halfSet,k);dirty=true;renderAll()},halfSet)}
+function renderCalInto(host,set,onToggle,hs){hs=hs||new Set();
   host.textContent="";
   const months=calMonths();
   for(const [y,m,from,to] of months){
@@ -581,7 +592,7 @@ function renderCalInto(host,set,onToggle){
       const el=document.createElement(sel?"button":"div");
       let cls="day";
       if(info){if(info.t==="off")cls+=" off";if(info.t==="must")cls+=" must";if(info.t==="ev")cls+=" ev"}
-      if(sel){el.type="button";if(set.has(k))cls+=" on";
+      if(sel){el.type="button";if(set.has(k))cls+=hs.has(k)?" on half":" on";
         el.setAttribute("aria-pressed",set.has(k)?"true":"false");
         el.setAttribute("aria-label",`${m}월 ${d}일 ${info?info.l:""}`);
         el.addEventListener("click",()=>onToggle(k))}
@@ -589,7 +600,8 @@ function renderCalInto(host,set,onToggle){
       const dd=document.createElement("span");dd.className="d";dd.textContent=d;el.append(dd);
       if(info){const l=document.createElement("span");l.className="l";l.textContent=info.l;el.append(l)}
       if(EXAM.has(k)){const n=document.createElement("span");n.className="n";n.textContent="2차시험";el.append(n)}
-      if(sel){const b=document.createElement("span");b.className="box";b.textContent=set.has(k)?"✓":"";el.append(b)}
+      if(sel){const b=document.createElement("span");b.className="box";b.textContent=set.has(k)?(hs.has(k)?"½":"✓"):"";el.append(b);
+        if(hs.has(k)){const hl=document.createElement("span");hl.className="n hl";hl.textContent="반일";el.append(hl)}}
       g.append(el);
     }
     box.append(g);host.append(box);
@@ -597,10 +609,10 @@ function renderCalInto(host,set,onToggle){
 }
 
 let usedDays=0,myPast=[],myPre=[],planLoaded=false,myForms={},planExists=false;const limit=()=>Math.max(0,MAX-usedDays);
-const allPeriods=(past,dates)=>[...(past||[]).map(p=>({start:p.from,end:p.to,n:p.n,past:true})),...periods(dates)];
+const allPeriods=(past,dates,half)=>[...(past||[]).map(p=>({start:p.from,end:p.to,n:p.n,past:true})),...periods(dates,half)];
 function warnings(dates){
-  const ps=allPeriods(myPast,dates);const w=[];const L=limit();
-  if(dates.length>L)w.push({bad:true,t:usedDays?`${dates.length-L}일 초과했어요. 학기 중 ${usedDays}일을 이미 써서 남은 일수는 ${L}일입니다.`:`${dates.length-L}일 초과했어요. 체험학습은 최대 ${MAX}일입니다.`});
+  const hf=[...halfSet];const ps=allPeriods(myPast,dates,hf);const w=[];const L=limit();const nn=dcount(dates,hf);const ov=Math.round((nn-L)*10)/10;
+  if(nn>L)w.push({bad:true,t:usedDays?`${ov}일 초과했어요. 학기 중 ${usedDays}일을 이미 써서 남은 일수는 ${L}일입니다.`:`${ov}일 초과했어요. 체험학습은 최대 ${MAX}일입니다.`});
   if(ps.length>4)w.push({bad:true,t:`학기 중 기간까지 합쳐 ${ps.length}개 기간이에요. 신청서 칸은 4차까지라 날짜를 이어서 잡아 주세요.`});
   const ev=dates.filter(k=>INFO[k]&&INFO[k].t==="ev");
   if(ev.length)w.push({t:`학교 행사일(${ev.map(short).join(", ")})이 포함되어 있어요. 행사에 참여하지 않는 날로 처리됩니다.`});
@@ -612,7 +624,7 @@ function warnings(dates){
 }
 
 function renderSummary(){
-  const dates=[...picked];const n=dates.length;const ps=allPeriods(myPast,dates);
+  const dates=[...picked];const n=dcount(dates,[...halfSet]);const ps=allPeriods(myPast,dates,[...halfSet]);
   const L=limit();$("cnt").textContent=n;$("cap").textContent=`/ ${L}일`;
   const ul0=$("usedline");ul0.hidden=!usedDays;ul0.textContent=usedDays?`학기 중 이미 ${usedDays}일 사용 → 수능 이후에 쓸 수 있는 날은 최대 ${L}일 (총 ${MAX}일)`:"";
   $("count").classList.toggle("over",n>L);$("meter").classList.toggle("over",n>L);
@@ -623,7 +635,7 @@ function renderSummary(){
   for(let i=0;i<rows;i++){const p=ps[i];
     const r=document.createElement("div");r.className="r";
     const k=document.createElement("span");k.className="k";k.textContent=`${i+1}차`;
-    const v=document.createElement("span");v.className="v"+(p?"":" blank");v.textContent=p?`${fmt(p.start)} ~ ${fmt(p.end)}`:"__________ ~ __________";
+    const v=document.createElement("span");v.className="v"+(p?"":" blank");v.textContent=p?(p.half?`${fmt(p.start)} 반일`:`${fmt(p.start)} ~ ${fmt(p.end)}`):"__________ ~ __________";
     const c=document.createElement("span");c.className="c";c.textContent=p?`(${p.n})일간`:"(  )일간";
     if(p&&p.past){r.classList.add("past");const tg=document.createElement("em");tg.className="tag";tg.textContent="학기 중";v.append(" ",tg)}
     const a=document.createElement("span");a.className="docbtns";
@@ -634,7 +646,7 @@ function renderSummary(){
   const tot=document.createElement("div");tot.className="r total";
   const tk=document.createElement("span");tk.className="k";tk.textContent="합계";
   const tv=document.createElement("span");tv.className="v";tv.textContent=usedDays?`학기 중 ${usedDays}일 + 수능 이후 ${n}일`:`수능 이후 ${n}일`;
-  const tc=document.createElement("span");tc.className="c";tc.textContent=`${usedDays+n} / ${MAX}일`;
+  const tc=document.createElement("span");tc.className="c";tc.textContent=`${Math.round((usedDays+n)*10)/10} / ${MAX}일`;
   tot.append(tk,tv,tc,document.createElement("span"));f.append(tot);
   const ul=$("notes");ul.textContent="";
   for(const w of warnings(dates)){const li=document.createElement("li");li.className="note"+(w.bad?" bad":"");li.textContent=w.t;ul.append(li)}
@@ -646,10 +658,10 @@ function setStatus(t,c){const s=$("status");s.textContent=t;s.className="status"
 
 $("pick1").onclick=()=>{REC1.forEach(k=>picked.add(k));dirty=true;renderAll()};
 $("pick2").onclick=()=>{REC2.forEach(k=>picked.add(k));dirty=true;renderAll()};
-$("clear").onclick=()=>{picked.clear();dirty=true;renderAll()};
+$("clear").onclick=()=>{picked.clear();halfSet.clear();dirty=true;renderAll()};
 $("copy").onclick=async()=>{
-  const ps=allPeriods(myPast,[...picked]);
-  const txt=[`3학년 ${$("cls").value||"__"}반 ${$("no").value||"__"}번 ${$("nm").value||""}`,...ps.map((p,i)=>`${i+1}차: ${periodText(p)}${p.past?" (학기 중)":""}`),`합계 ${usedDays+picked.size}일 (학기 중 ${usedDays}일 + 수능 이후 ${picked.size}일)`].join("\n");
+  const ps=allPeriods(myPast,[...picked],[...halfSet]);const nn=dcount([...picked],[...halfSet]);
+  const txt=[`3학년 ${$("cls").value||"__"}반 ${$("no").value||"__"}번 ${$("nm").value||""}`,...ps.map((p,i)=>`${i+1}차: ${periodText(p)}${p.past?" (학기 중)":""}`),`합계 ${Math.round((usedDays+nn)*10)/10}일 (학기 중 ${usedDays}일 + 수능 이후 ${nn}일)`].join("\n");
   try{await navigator.clipboard.writeText(txt);setStatus("신청 기간을 복사했어요.","ok")}
   catch(e){setStatus("복사가 막혀 있어요. 아래 내용을 직접 옮겨 적어 주세요.","err")}
 };
@@ -659,12 +671,13 @@ $("save").onclick=async()=>{
   if(!cls){setStatus("반을 골라 주세요.","err");$("cls").focus();return}
   if(!no||no<1){setStatus("번호를 입력해 주세요.","err");$("no").focus();return}
   if(!nm){setStatus("이름을 입력해 주세요.","err");$("nm").focus();return}
-  if(picked.size>limit()){setStatus(`이번에 쓸 수 있는 날은 최대 ${limit()}일이에요. 날짜를 줄여 주세요.`,"err");return}
+  if(dcount([...picked],[...halfSet])>limit()){setStatus(`이번에 쓸 수 있는 날은 최대 ${limit()}일이에요. 날짜를 줄여 주세요.`,"err");return}
   const pin=$("pin").value.trim();if(!/^\d{4}$/.test(pin)){setStatus("비밀번호 숫자 4자리를 입력해 주세요. 나중에 내 제출을 불러올 때 써요.","err");$("pin").focus();return}
   $("save").disabled=true;setStatus("제출하는 중…","");
   try{
     const dates=[...picked].sort((a,b)=>IDX.get(a)-IDX.get(b));
-    await run("submitPlan",cls,no,pin,{name:nm,dates,summary:periods(dates).map(periodText).join(" / "),forms:JSON.parse(JSON.stringify(myForms))});planExists=true;
+    const half=[...halfSet].filter(k=>picked.has(k));
+    await run("submitPlan",cls,no,pin,{name:nm,dates,half,summary:periods(dates,half).map(periodText).join(" / "),forms:JSON.parse(JSON.stringify(myForms))});planExists=true;
     dirty=false;const t=new Date();setStatus(`제출했어요 (${pad(t.getHours())}:${pad(t.getMinutes())}). 선생님 화면에 바로 반영됩니다.`,"ok");
   }catch(e){setStatus(e&&e.msg?e.msg:"제출하지 못했어요. 잠시 후 다시 눌러 주세요.","err")}
   finally{$("save").disabled=false}
@@ -676,7 +689,7 @@ $("loadmine").onclick=async()=>{
   setStatus("불러오는 중…","");
   try{const d=await run("loadPlan",c,n,pin);
     if(!d){setStatus("아직 제출한 일정이 없어요. 날짜를 고르고 제출해 주세요.","");return}
-    picked=new Set((d.dates||[]).filter(k=>IDX.has(k)));myForms=d.forms&&typeof d.forms==="object"?d.forms:{};
+    picked=new Set((d.dates||[]).filter(k=>IDX.has(k)));halfSet=new Set((d.half||[]).filter(k=>picked.has(k)));myForms=d.forms&&typeof d.forms==="object"?d.forms:{};
     if(d.name)$("nm").value=d.name;planLoaded=true;planExists=true;dirty=false;renderAll();setH1();refreshUsed();
     const t=new Date(d.updatedAt||0);setStatus(`제출한 일정을 불러왔어요 (${t.getMonth()+1}/${t.getDate()} ${pad(t.getHours())}:${pad(t.getMinutes())} 제출${d.editedByTeacher?" · 담임 선생님이 수정함":""}).`,"ok")}
   catch(e){setStatus(e&&e.msg?e.msg:"불러오지 못했어요.","err")}};
@@ -684,11 +697,11 @@ $("loadmine").onclick=async()=>{
 let usedTimer=0,usedSeq=0;
 function refreshUsed(){clearTimeout(usedTimer);usedTimer=setTimeout(async()=>{
   const c=parseInt($("cls").value,10),n=parseInt($("no").value,10);const my=++usedSeq;
-  let d=0,past=[],pre=[];
-  if(c&&n){try{const v=await run("getUsed",c,n);if(v){d=+v.days||0;past=Array.isArray(v.past)?v.past:[];pre=Array.isArray(v.pre)?v.pre.filter(k=>IDX.has(k)):[]}}catch(e){}}
+  let d=0,past=[],pre=[],preHalf=[];
+  if(c&&n){try{const v=await run("getUsed",c,n);if(v){d=+v.days||0;past=Array.isArray(v.past)?v.past:[];pre=Array.isArray(v.pre)?v.pre.filter(k=>IDX.has(k)):[];preHalf=Array.isArray(v.preHalf)?v.preHalf:[]}}catch(e){}}
   if(my!==usedSeq)return;
   usedDays=Math.max(0,Math.min(MAX,d));myPast=past;myPre=pre;
-  if(!planLoaded&&picked.size===0&&pre.length){pre.forEach(k=>picked.add(k));renderCal();
+  if(!planLoaded&&picked.size===0&&pre.length){pre.forEach(k=>picked.add(k));preHalf.forEach(k=>{if(picked.has(k))halfSet.add(k)});renderCal();
     setStatus("명단에 이미 적혀 있는 수능 이후 일정을 달력에 표시했어요. 맞는지 확인하고 제출해 주세요.","")}
   renderSummary()},300)}
 ["cls","no"].forEach(id=>{$(id).addEventListener("input",refreshUsed);$(id).addEventListener("change",refreshUsed)});
@@ -696,8 +709,8 @@ function refreshUsed(){clearTimeout(usedTimer);usedTimer=setTimeout(async()=>{
 // ---------- 담임 화면 ----------
 let rows=[];let usedMap={};let rosterMap={};let pendingDel=null;
 const recOf=r=>usedMap[`${r.cls}-${r.no}`]||{days:0,past:[],pre:[]};
-const usedOf=r=>recOf(r).days||0;const totalOf=r=>r.dates.length+usedOf(r);
-const psOf=r=>allPeriods(recOf(r).past,r.dates);let myCls=0;let viewCls=0;
+const usedOf=r=>recOf(r).days||0;const rcnt=r=>dcount(r.dates,r.half);const totalOf=r=>Math.round((rcnt(r)+usedOf(r))*10)/10;
+const psOf=r=>allPeriods(recOf(r).past,r.dates,r.half);let myCls=0;let viewCls=0;
 function fillCls(sel,first){sel.textContent="";if(first){const o=document.createElement("option");o.value=first[0];o.textContent=first[1];sel.append(o)}
   for(let i=1;i<=NCLS;i++){const o=document.createElement("option");o.value=i;o.textContent=i+"반";sel.append(o)}}
 fillCls($("cls"),["","반 선택"]);fillCls($("mycls"),["","반 선택"]);fillCls($("viewcls"),["0","3학년 전체"]);
@@ -740,7 +753,7 @@ function viewList(){
   const seen=new Set();const out=[];
   for(const r of rows){const k=`${r.cls}-${r.no}`;seen.add(k);const ro=rosterMap[k];out.push({...r,submitted:true,rosterName:ro?ro.name:""})}
   for(const k in rosterMap){if(seen.has(k))continue;const ro=rosterMap[k];const rec=usedMap[k];
-    out.push({id:null,cls:ro.cls,no:ro.no,name:ro.name,rosterName:ro.name,dates:rec&&Array.isArray(rec.pre)?rec.pre.filter(x=>IDX.has(x)):[],submitted:false})}
+    out.push({id:null,cls:ro.cls,no:ro.no,name:ro.name,rosterName:ro.name,dates:rec&&Array.isArray(rec.pre)?rec.pre.filter(x=>IDX.has(x)):[],half:rec&&Array.isArray(rec.preHalf)?rec.preHalf:[],submitted:false})}
   return out.filter(r=>!viewCls||r.cls===viewCls)
     .sort((a,b)=>((a.cls||99)-(b.cls||99))||((a.no||999)-(b.no||999)));
 }
@@ -771,7 +784,7 @@ function renderClass(){
     const ps=psOf(r);const tr=document.createElement("tr");if(!r.submitted)tr.className="unsub";
     const td=(t)=>{const c=document.createElement("td");c.textContent=t;tr.append(c);return c};
     if(all)td(r.cls?r.cls+"반":"-");
-    td(r.no??"-");{const c=document.createElement("td");if(r.dates.length){const nb=document.createElement("button");nb.type="button";nb.className="namebtn";nb.textContent=r.name||r.rosterName||"";nb.title="서류 보기";nb.onclick=()=>openViewer(r);c.append(nb)}else c.textContent=r.name||r.rosterName||"";tr.append(c)}td(usedOf(r)?usedOf(r)+"일":"-");td(r.dates.length+"일");td(totalOf(r)+"일");
+    td(r.no??"-");{const c=document.createElement("td");if(r.dates.length){const nb=document.createElement("button");nb.type="button";nb.className="namebtn";nb.textContent=r.name||r.rosterName||"";nb.title="서류 보기";nb.onclick=()=>openViewer(r);c.append(nb)}else c.textContent=r.name||r.rosterName||"";tr.append(c)}td(usedOf(r)?usedOf(r)+"일":"-");td(rcnt(r)+"일");td(totalOf(r)+"일");
     for(let i=0;i<4;i++){const p=ps[i];const c=td(p?periodText(p):"");if(p&&p.past)c.className="pastcell"}
     const sc=document.createElement("td");const pill=document.createElement("span");
     if(!r.submitted){pill.className="pill warn";pill.textContent=r.dates.length?"미제출 · 명단 일정":"미제출"}
@@ -834,7 +847,7 @@ $("csv").onclick=async()=>{
   const head=["반","번호","이름","제출","학기 중 사용","수능 이후","합계","1차","2차","3차","4차","5차 이후",...SEL.map(short)];
   const lines=[head.map(esc).join(",")];
   for(const r of list){const ps=psOf(r);const s=new Set(r.dates);
-    lines.push([r.cls,r.no,r.name,r.submitted?"제출":"미제출",usedOf(r),r.dates.length,totalOf(r),...[0,1,2,3].map(i=>ps[i]?periodText(ps[i]):""),ps.slice(4).map(periodText).join(" / "),...SEL.map(k=>s.has(k)?"O":"")].map(esc).join(","))}
+    lines.push([r.cls,r.no,r.name,r.submitted?"제출":"미제출",usedOf(r),rcnt(r),totalOf(r),...[0,1,2,3].map(i=>ps[i]?periodText(ps[i]):""),ps.slice(4).map(periodText).join(" / "),...SEL.map(k=>s.has(k)?"O":"")].map(esc).join(","))}
   if(!dl){cstatus("이 화면에서는 파일 저장을 쓸 수 없어요.");return}
   try{await dl.save({filename:`3학년${all?"전체":viewCls+"반"}_체험학습_일정.csv`,data:"\uFEFF"+lines.join("\r\n")});cstatus("CSV를 저장했어요.")}
   catch(e){cstatus(e&&e.code==="declined"?"저장을 취소했어요.":"CSV를 저장하지 못했어요.")}
@@ -892,12 +905,13 @@ $("padd").onclick=()=>{
 
 // ---------- 달력 사진 ----------
 const SKY="#cfe6fb",SKY_INK="#174a73",GRN="#2e9e5b",GRN_INK="#ffffff",OFF="#eceef2",OFF_INK="#8a909c",MUST="#c8322b",INK="#1e2433",MUTE="#646b7a",PAPER="#ffffff",LINE="#dcdfe6",PLUM="#6a3d8f";
-function infoFromRow(r){const rec=recOf(r);return{cls:r.cls,no:r.no,name:r.name||r.rosterName||"",dates:r.dates.slice(),past:rec.past||[],used:rec.days||0}}
-function infoMine(){return{cls:+$("cls").value||"",no:+$("no").value||"",name:$("nm").value.trim(),dates:[...picked],past:myPast,used:usedDays}}
+function infoFromRow(r){const rec=recOf(r);return{cls:r.cls,no:r.no,name:r.name||r.rosterName||"",dates:r.dates.slice(),half:(r.half||[]).slice(),past:rec.past||[],used:rec.days||0}}
+function infoMine(){return{cls:+$("cls").value||"",no:+$("no").value||"",name:$("nm").value.trim(),dates:[...picked],half:[...halfSet],past:myPast,used:usedDays}}
 function rr(x,c,y,w,h,r){x.beginPath();x.moveTo(c+r,y);x.arcTo(c+w,y,c+w,y+h,r);x.arcTo(c+w,y+h,c,y+h,r);x.arcTo(c,y+h,c,y,r);x.arcTo(c,y,c+w,y,r);x.closePath()}
 function dayKind(k,on){const info=INFO[k];
   if(info&&info.t==="fixed")return{f:SKY,t:SKY_INK,l:info.l};
   if(info&&info.t==="off")return{f:OFF,t:OFF_INK,l:info.l};
+  if(on==="half")return{f:"#9fd3b4",t:INK,l:"반일 체험",must:!!(info&&info.t==="must")};
   if(on)return{f:GRN,t:GRN_INK,l:"체험학습",must:!!(info&&info.t==="must")};
   if(info&&info.t==="must")return{f:SKY,t:MUST,l:"등교 필수★",must:true};
   if(info&&info.t==="ev")return{f:SKY,t:SKY_INK,l:info.l};
@@ -911,7 +925,7 @@ async function drawCalendar(I){
     let col=lead,row=0;for(let d=from;d<=to;d++){const t=new Date(y,m-1,d);const w=t.getDay();if(w===0||w===6){continue}
       col=w-1;if(cells.length&&col<=cells[cells.length-1].col)row++;cells.push({d,col,row,k:key(y,m,d)})}
     return{m,cells,rows:row+1}});
-  const ps=allPeriods(I.past,I.dates);const sumH=70+Math.max(1,ps.length)*44+60;
+  const ps=allPeriods(I.past,I.dates,I.half);const sumH=70+Math.max(1,ps.length)*44+60;
   let H=P+150+60;layout.forEach(L=>H+=56+34+L.rows*(CH+G)+18);H+=sumH+P;
   const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d");
   x.fillStyle=PAPER;x.fillRect(0,0,W,H);x.textBaseline="alphabetic";
@@ -923,7 +937,7 @@ async function drawCalendar(I){
   for(const L of layout){
     y+=44;x.fillStyle=INK;x.font=`36px ${DF}`;x.fillText(`${L.m}월`,P,y);y+=12;
     x.font=`600 20px ${F}`;x.fillStyle=MUTE;["월","화","수","목","금"].forEach((w,i)=>{const tw=x.measureText(w).width;x.fillText(w,P+i*(CW+G)+CW/2-tw/2,y+22)});y+=34;
-    for(const c of L.cells){const cx=P+c.col*(CW+G),cy=y+c.row*(CH+G);const k=dayKind(c.k,on.has(c.k));
+    for(const c of L.cells){const cx=P+c.col*(CW+G),cy=y+c.row*(CH+G);const k=dayKind(c.k,on.has(c.k)?((I.half||[]).includes(c.k)?"half":true):false);
       rr(x,cx,cy,CW,CH,12);x.fillStyle=k.f;x.fill();if(k.must){x.lineWidth=3;x.strokeStyle=MUST;x.stroke()}
       x.fillStyle=k.t===MUST?SKY_INK:k.t;x.font=`700 28px ${F}`;x.fillText(String(c.d),cx+14,cy+38);
       x.fillStyle=k.t;let fs=20;x.font=`600 ${fs}px ${F}`;while(x.measureText(k.l).width>CW-24&&fs>13){fs--;x.font=`600 ${fs}px ${F}`}
@@ -934,9 +948,9 @@ async function drawCalendar(I){
   x.font=`500 24px ${F}`;
   if(!ps.length){y+=44;x.fillStyle=MUTE;x.fillText("신청한 기간이 없어요.",P,y)}
   ps.forEach((p,i)=>{y+=44;x.fillStyle=MUTE;x.fillText(`${i+1}차`,P,y);x.fillStyle=p.past?MUTE:INK;
-    x.fillText(`${fmt(p.start)}${p.start!==p.end?" ~ "+fmt(p.end):""}  (${p.n})일간${p.past?"  · 학기 중":""}`,P+70,y)});
-  y+=54;const tot=Math.round((I.used+I.dates.length)*10)/10;x.fillStyle=tot>MAX?MUST:INK;x.font=`700 26px ${F}`;
-  x.fillText(`합계 ${tot} / ${MAX}일${I.used?`  (학기 중 ${I.used}일 + 수능 이후 ${I.dates.length}일)`:""}`,P,y);
+    x.fillText(`${fmt(p.start)}${p.half?" 반일":p.start!==p.end?" ~ "+fmt(p.end):""}  (${p.n})일간${p.past?"  · 학기 중":""}`,P+70,y)});
+  y+=54;const icnt=dcount(I.dates,I.half);const tot=Math.round((I.used+icnt)*10)/10;x.fillStyle=tot>MAX?MUST:INK;x.font=`700 26px ${F}`;
+  x.fillText(`합계 ${tot} / ${MAX}일${I.used?`  (학기 중 ${I.used}일 + 수능 이후 ${icnt}일)`:""}`,P,y);
   return cv}
 let imgCanvas=null,imgName="";
 function imgStatus(t){$("imgstatus").textContent=t}
@@ -969,14 +983,14 @@ $("zipimg").onclick=async()=>{
 
 // ---------- 신청서·보고서 ----------
 const TYPES=["가족 여행","친인척 방문","답사·견학 활동","체험 활동"];
-function cumFor(used,dates,start){let c=+used||0;for(const p of periods(dates))if(p.start<=start)c+=p.n;return Math.round(c*10)/10}
+function cumFor(used,dates,start,half){let c=+used||0;for(const p of periods(dates,half))if(p.start<=start)c+=p.n;return Math.round(c*10)/10}
 const FORM={
   plan:{src:FORM_PLAN_IMG,
     name:[270,475,324],grade:[525,324],cls:[603,324],no:[656,324],phone:[875,1105,324],
     y:[550,353],m1:[601,353],d1:[654,353],m2:[740,353],d2:[799,353],total:[989,381],
     type:{y:554,x:[476,648,842,993]},dest:[270,680,584],stay:[820,1105,584],
     gname:[270,490,611],grel:[565,675,611],gphone:[820,1105,611],purpose:[272,1100,667],plan:[278,690,1095,888],
-    sub:{y:990,x:[555,610,664]},
+    sub:{y:990,x:[555,610,664]},hy:[675,380],hm:[726,380],hd:[778,380],esc:638,agree:[1057,908],
     sigG:[990,1008],sigS:[990,1035],
     nt:{name:[300,596,1172],grade:[833,1172],cls:[912,1172],no:[976,1172],y:[608,1208],m1:[671,1208],d1:[722,1208],m2:[810,1208],d2:[867,1208],n:[935,1208],
       year:[224,1264],cum:[198,1378],tg:[616,1366],tc:[753,1366],tname:[990,1366]}},
@@ -984,7 +998,7 @@ const FORM={
     name:[265,475,307],grade:[775,307],cls:[873,307],no:[954,307],
     y:[567,346],m1:[622,346],d1:[680,346],m2:[787,346],d2:[851,346],total:[943,346],
     dest:[470,1100,438],guard:[470,1100,475],type:{y:516,x:[399,587,804,972]},title:[272,1100,558],
-    body:{x:[132,1100],top:639,step:46,rows:17},sub:{y:1473,x:[556,613,677]},sigG:[990,1506],sigS:[990,1536]}};
+    body:{x:[132,1100],top:639,step:46,rows:17},sub:{y:1473,x:[556,613,677]},hy:[569,392],hm:[625,392],hd:[677,392],sigG:[990,1506],sigS:[990,1536]}};
 const PEN="#14206b";const FF='"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
 const formImgs={};
 function formImg(src){if(formImgs[src])return formImgs[src];formImgs[src]=new Promise((ok,no)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=()=>{delete formImgs[src];no(new Error("img"))};im.src=src});return formImgs[src]}
@@ -1007,7 +1021,9 @@ async function drawForm(kind,D){
   x.drawImage(bg,0,0);x.fillStyle=PEN;const f=D.f||{};let warn="";
   cText(x,D.name,(L.name[0]+L.name[1])/2,L.name[2],22,L.name[1]-L.name[0]-10);
   cText(x,"3",L.grade[0],L.grade[1],21);cText(x,D.cls,L.cls[0],L.cls[1],21);cText(x,D.no,L.no[0],L.no[1],21);
-  if(D.period){const a=dmy(D.period.start),b=dmy(D.period.end);
+  if(D.period&&D.period.half){const a=dmy(D.period.start);
+    cText(x,a.y,L.hy[0],L.hy[1],20);cText(x,a.m,L.hm[0],L.hm[1],20);cText(x,a.d,L.hd[0],L.hd[1],20);cText(x,"0.5",L.total[0],L.total[1],19)}
+  else if(D.period){const a=dmy(D.period.start),b=dmy(D.period.end);
     cText(x,a.y,L.y[0],L.y[1],20);cText(x,a.m,L.m1[0],L.m1[1],20);cText(x,a.d,L.d1[0],L.d1[1],20);
     cText(x,b.m,L.m2[0],L.m2[1],20);cText(x,b.d,L.d2[0],L.d2[1],20);cText(x,D.period.n,L.total[0],L.total[1],21)}
   const ty=f.type;if(ty!==""&&ty!=null&&L.type.x[+ty]!=null){x.font=`700 22px ${FF}`;cText(x,"O",L.type.x[+ty],L.type.y,22)}
@@ -1016,6 +1032,8 @@ async function drawForm(kind,D){
     lText(x,f.dest,L.dest[0],L.dest[1],L.dest[2],20);lText(x,f.stay,L.stay[0],L.stay[1],L.stay[2],20);
     lText(x,f.gname,L.gname[0],L.gname[1],L.gname[2],20);cText(x,f.grel,(L.grel[0]+L.grel[1])/2,L.grel[2],20,L.grel[1]-L.grel[0]-8);
     lText(x,f.gphone,L.gphone[0],L.gphone[1],L.gphone[2],20);lText(x,f.purpose,L.purpose[0],L.purpose[1],L.purpose[2],20);
+    lText(x,f.gname,L.gname[0],L.gname[1],L.esc,20);cText(x,f.grel,(L.grel[0]+L.grel[1])/2,L.esc,20,L.grel[1]-L.grel[0]-8);lText(x,f.gphone,L.gphone[0],L.gphone[1],L.esc,20);
+    if(D.agreed){x.save();x.strokeStyle=PEN;x.lineWidth=3.2;x.lineCap="round";x.lineJoin="round";x.beginPath();const [ax,ay]=L.agree;x.moveTo(ax-7,ay);x.lineTo(ax-2,ay+6);x.lineTo(ax+9,ay-8);x.stroke();x.restore()}
     const [px,py,pr,pb]=L.plan;let s=21,lines;
     for(;s>=13;s--){x.font=`500 ${s}px ${FF}`;lines=wrapText(x,f.plan,pr-px-8);if(lines.length*(s*1.45)<=pb-py-14)break}
     if(lines.length*(s*1.45)>pb-py-14)warn="교외체험 학습계획이 칸보다 길어요. 조금 줄여 주세요.";
@@ -1032,7 +1050,7 @@ async function drawForm(kind,D){
     cText(x,"3",T.grade[0],T.grade[1],20);cText(x,D.cls,T.cls[0],T.cls[1],20);cText(x,D.no,T.no[0],T.no[1],20);
     const a=dmy(D.period.start),b=dmy(D.period.end);
     cText(x,a.y,T.y[0],T.y[1],20);cText(x,a.m,T.m1[0],T.m1[1],20);cText(x,a.d,T.d1[0],T.d1[1],20);
-    cText(x,b.m,T.m2[0],T.m2[1],20);cText(x,b.d,T.d2[0],T.d2[1],20);cText(x,D.period.n,T.n[0],T.n[1],20);
+    if(!D.period.half){cText(x,b.m,T.m2[0],T.m2[1],20);cText(x,b.d,T.d2[0],T.d2[1],20)}cText(x,D.period.n,T.n[0],T.n[1],20);
     cText(x,MAX,T.year[0],T.year[1],20);if(D.cum!=null)cText(x,D.cum,T.cum[0],T.cum[1],20,38);
     cText(x,"3",T.tg[0],T.tg[1],20);cText(x,D.cls,T.tc[0],T.tc[1],20);
     const tn=TEACHERS[+D.cls];if(tn)cText(x,tn,T.tname[0],T.tname[1],21)}
@@ -1044,7 +1062,7 @@ async function drawForm(kind,D){
 let docKind="plan",docCanvas=null,docTimer=0;
 const PF=["phone","dest","stay","gname","grel","gphone","purpose","plan","date"],RF=["dest","guard","title","body","date"];
 let docCtx=null;
-function curPeriods(){return docCtx?docCtx.periods():periods([...picked])}
+function curPeriods(){return docCtx?docCtx.periods():periods([...picked],[...halfSet])}
 function curKey(){return $("dperiod").value}
 function readFields(){const k=curKey();if(!k||!docCtx)return;const FS=docCtx.forms;const F=FS[k]=FS[k]||{plan:{},report:{}};
   PF.forEach(n=>F.plan[n]=$("p_"+n).value);RF.forEach(n=>F.report[n]=$("r_"+n).value);
@@ -1071,7 +1089,7 @@ async function renderDoc(){
   if(!docCtx)return;readFields();const k=curKey();const p=curPeriods().find(q=>q.start===k);const F=(k&&docCtx.forms[k])||{plan:{},report:{}};
   const f=Object.assign({},docKind==="plan"?F.plan:F.report);if(docKind==="report")f.gsig=(F.plan||{}).gname||"";
   const nb=wrapLinesCount();$("r_count").textContent=nb;
-  try{const r=await drawForm(docKind,{name:docCtx.name,cls:docCtx.cls,no:docCtx.no,period:p,f,cum:p?cumFor(docCtx.used(),docCtx.dates(),p.start):null});
+  try{const r=await drawForm(docKind,{name:docCtx.name,cls:docCtx.cls,no:docCtx.no,period:p,f,cum:p?cumFor(docCtx.used(),docCtx.dates(),p.start,docCtx.half?docCtx.half():[]):null,agreed:!!(docCtx.agreed&&docCtx.agreed())});
     docCanvas=r.cv;$("docimg").src=r.cv.toDataURL("image/jpeg",0.9);
     $("docwarn").hidden=!r.warn;$("docwarn").textContent=r.warn}
   catch(e){docStatus("양식 그림을 불러오지 못했어요. 잠시 후 다시 열어 주세요.","err")}}
@@ -1089,7 +1107,7 @@ function openDoc(ctx,kind,start){
   $("doctitle").textContent=ctx.teacher?`${ctx.cls}반 ${ctx.no}번 ${ctx.name} 신청서·보고서`:"체험학습 신청서·보고서 작성";
   $("docsave").textContent=ctx.teacher?"담임 수정 저장":"입력 내용 저장";
   fillFields();docStatus("");$("docmodal").hidden=false;docKind=kind||docKind;setDocKind(docKind);$("docclose").focus();return true}
-function studentCtx(){return{name:$("nm").value.trim(),cls:$("cls").value,no:$("no").value,periods:()=>periods([...picked]),dates:()=>[...picked],used:()=>usedDays,forms:myForms,
+function studentCtx(){return{name:$("nm").value.trim(),cls:$("cls").value,no:$("no").value,periods:()=>periods([...picked],[...halfSet]),dates:()=>[...picked],half:()=>[...halfSet],agreed:()=>planExists,used:()=>usedDays,forms:myForms,
   save:async()=>{if(!planExists)throw{msg:"먼저 ‘담임 선생님께 제출’로 일정을 제출해 주세요. 그다음 입력 내용을 저장할 수 있어요."};
     const pin=$("pin").value.trim();if(!/^\d{4}$/.test(pin))throw{msg:"화면 위쪽에 비밀번호 4자리를 입력해 주세요."};
     await run("saveForms",+$("cls").value,+$("no").value,pin,JSON.parse(JSON.stringify(myForms)))}}}
@@ -1120,7 +1138,7 @@ $("docpdf").onclick=async()=>{await renderDoc();if(!docCanvas)return;
 
 async function docFor(kind,ctx,start){const ps=ctx.periods();const p=ps.find(q=>q.start===start);const F=(ctx.forms[start])||{plan:{},report:{}};
   const f=Object.assign({},kind==="plan"?F.plan:F.report);if(kind==="report")f.gsig=(F.plan||{}).gname||"";
-  return(await drawForm(kind,{name:ctx.name,cls:ctx.cls,no:ctx.no,period:p,f,cum:p?cumFor(ctx.used(),ctx.dates(),p.start):null})).cv}
+  return(await drawForm(kind,{name:ctx.name,cls:ctx.cls,no:ctx.no,period:p,f,cum:p?cumFor(ctx.used(),ctx.dates(),p.start,ctx.half?ctx.half():[]):null,agreed:!!(ctx.agreed&&ctx.agreed())})).cv}
 async function pagesToPdf(canvases){const J=await loadPDF();const pdf=new J.jsPDF({unit:"mm",format:"a4",compress:true});
   canvases.forEach((cv,i)=>{if(i)pdf.addPage();pdf.addImage(cv.toDataURL("image/jpeg",0.82),"JPEG",0,0,210,297)});return pdf.output("blob")}
 function printPages(canvases,title){return new Promise((ok,no)=>{
@@ -1133,8 +1151,8 @@ function printPages(canvases,title){return new Promise((ok,no)=>{
   const imgs=canvases.map(cv=>{const im=d.createElement("img");im.src=cv.toDataURL("image/jpeg",0.92);d.body.append(im);return im});
   Promise.all(imgs.map(im=>im.decode?im.decode().catch(()=>{}):Promise.resolve())).then(()=>{
     setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print();ok()}catch(e){no(e)}},150)})})}
-function studentCtx_(r){return{name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods(r.dates),dates:()=>r.dates,used:()=>recOf(r).days||0,forms:r.forms||{}}}
-async function pagesFor(r,kinds){const ctx=studentCtx_(r);const out=[];for(const p of periods(r.dates))for(const k of kinds)out.push(await docFor(k,ctx,p.start));return out}
+function studentCtx_(r){return{name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods(r.dates,r.half),dates:()=>r.dates,half:()=>r.half||[],agreed:()=>!!r.submitted,used:()=>recOf(r).days||0,forms:r.forms||{}}}
+async function pagesFor(r,kinds){const ctx=studentCtx_(r);const out=[];for(const p of periods(r.dates,r.half))for(const k of kinds)out.push(await docFor(k,ctx,p.start));return out}
 async function printStudent(r,kinds){
   const nm=`${r.no}번 ${r.name||r.rosterName||""}`;cstatus(`${nm} 서류를 준비하는 중…`);
   try{const pages=await pagesFor(r,kinds);if(!pages.length){cstatus(`${nm}: 체험학습 일정이 없어요.`);return}
@@ -1153,22 +1171,22 @@ $("docpdf2").onclick=async()=>{readFields();if(!docCtx)return;if(!dl){docStatus(
   catch(e){docStatus(e&&e.code==="declined"?"저장을 취소했어요.":"PDF를 만들지 못했어요. 잠시 후 다시 눌러 주세요.","err")}};
 
 // ---------- 담임 수정 ----------
-let editRow=null,editSet=new Set(),editForms={},editDirty=false;
+let editRow=null,editSet=new Set(),editHalf=new Set(),editForms={},editDirty=false;
 function editStatus(t,c){const e=$("editstatus");e.textContent=t;e.className="status"+(c?" "+c:"")}
 function renderEdit(){
-  const r=editRow;const rec=recOf(r);const used=rec.days||0;const L=Math.max(0,MAX-used);const n=editSet.size;
+  const r=editRow;const rec=recOf(r);const used=rec.days||0;const L=Math.max(0,MAX-used);const n=dcount([...editSet],[...editHalf]);
   const sm=$("editsum");sm.textContent="";sm.classList.toggle("over",n>L);
   const b=document.createElement("b");b.textContent=n;const t=document.createElement("span");
   t.textContent=`/ ${L}일 선택${used?` · 학기 중 ${used}일 포함 합계 ${Math.round((used+n)*10)/10} / ${MAX}일`:""}`;sm.append(b,t);
   const ul=$("editnotes");ul.textContent="";
-  const ps=allPeriods(rec.past,[...editSet]);const w=[];
+  const ps=allPeriods(rec.past,[...editSet],[...editHalf]);const w=[];
   if(n>L)w.push({bad:true,t:`${Math.round((n-L)*10)/10}일 초과했어요.`});
   if(ps.length>4)w.push({bad:true,t:`기간이 ${ps.length}개예요. 신청서 칸은 4차까지입니다.`});
-  periods([...editSet]).forEach((p,i)=>w.push({t:`${i+1}차 ${periodText(p)}`}));
+  periods([...editSet],[...editHalf]).forEach((p,i)=>w.push({t:`${i+1}차 ${periodText(p)}`}));
   for(const x of w){const li=document.createElement("li");li.className="note"+(x.bad?" bad":"");if(!x.bad){li.style.background="var(--field-soft)";li.style.color="var(--field)"}li.textContent=x.t;ul.append(li)}
-  renderCalInto($("editcal"),editSet,k=>{editSet.has(k)?editSet.delete(k):editSet.add(k);editDirty=true;editStatus("저장하지 않은 변경이 있어요.","");renderEdit()})}
+  renderCalInto($("editcal"),editSet,k=>{cycleDay(editSet,editHalf,k);editDirty=true;editStatus("저장하지 않은 변경이 있어요.","");renderEdit()},editHalf)}
 function openEdit(r){
-  editRow=r;editSet=new Set(r.dates);editForms=JSON.parse(JSON.stringify(r.forms||{}));editDirty=false;
+  editRow=r;editSet=new Set(r.dates);editHalf=new Set((r.half||[]).filter(k=>editSet.has(k)));editForms=JSON.parse(JSON.stringify(r.forms||{}));editDirty=false;
   $("edittitle").textContent=`${r.cls}반 ${r.no}번 ${r.name||r.rosterName||""} 일정 수정`;
   $("edithint").textContent=r.submitted?"학생이 제출한 일정을 담임이 고칩니다. 저장하면 학생 화면에도 바로 반영돼요.":"아직 제출하지 않은 학생이에요. 여기서 저장한 일정은 학생이 처음 들어올 때 달력에 미리 표시되고, 신청서·보고서 입력 내용은 학생이 제출한 뒤에 저장할 수 있어요.";
   editStatus("");renderEdit();$("editmodal").hidden=false;$("editclose").focus()}
@@ -1178,9 +1196,10 @@ $("editmodal").addEventListener("click",e=>{if(e.target===$("editmodal"))closeEd
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!e.defaultPrevented&&!$("editmodal").hidden)closeEdit()});
 async function saveEditDates(){
   const r=editRow;const dates=[...editSet].sort((a,b)=>IDX.get(a)-IDX.get(b));
-  if(r.submitted){await run("tSavePlan",PW,r.id,{dates,summary:periods(dates).map(periodText).join(" / ")})}
+  const half=[...editHalf].filter(k=>editSet.has(k));
+  if(r.submitted){await run("tSavePlan",PW,r.id,{dates,half,summary:periods(dates,half).map(periodText).join(" / ")})}
   else{const k=`${r.cls}-${r.no}`;const rec=usedMap[k]||{days:0,past:[]};
-    await run("tSaveUsed",PW,k,{cls:r.cls,no:r.no,days:rec.days||0,past:rec.past||[],pre:dates})}
+    await run("tSaveGrid",PW,r.cls,[{no:r.no,dates,half,summary:periods(dates,half).map(periodText).join(" / ")}])}
   editDirty=false;loadTeacher()}
 $("editsave").onclick=async()=>{
   $("editsave").disabled=true;
@@ -1188,7 +1207,7 @@ $("editsave").onclick=async()=>{
   finally{$("editsave").disabled=false}};
 $("editdoc").onclick=()=>{
   const r=editRow;if(!editSet.size){editStatus("달력에서 체험학습 날짜를 먼저 골라 주세요.","err");return}
-  openDoc({teacher:true,name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods([...editSet]),dates:()=>[...editSet],used:()=>recOf(r).days||0,forms:editForms,
+  openDoc({teacher:true,name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods([...editSet],[...editHalf]),dates:()=>[...editSet],half:()=>[...editHalf],agreed:()=>!!r.submitted,used:()=>recOf(r).days||0,forms:editForms,
     save:async()=>{if(!r.submitted)throw{msg:"아직 제출하지 않은 학생이라 입력 내용은 저장되지 않아요. 사진이나 PDF로는 저장할 수 있어요."};
       if(editDirty)await saveEditDates();
       await run("tSavePlan",PW,r.id,{forms:JSON.parse(JSON.stringify(editForms))});loadTeacher()}},"plan",null)};
@@ -1197,7 +1216,8 @@ $("editdoc").onclick=()=>{
 let attDate="",gridCls=0,gridRows=[],gridDirty=false,gridPaint=null;
 function gStatus(t){$("gstatus").textContent=t}
 function enteredOf(r){const u=usedMap[`${r.cls}-${r.no}`];return r.submitted||!!(u&&(u.gridAt||(u.pre&&u.pre.length)))}
-function goingOn(list,k){return list.filter(r=>enteredOf(r)&&!r.dates.includes(k))}
+function goingOn(list,k){return list.filter(r=>enteredOf(r)&&(!r.dates.includes(k)||(r.half||[]).includes(k)))}
+const halfOn=(r,k)=>r.dates.includes(k)&&(r.half||[]).includes(k);
 function dateLabel(k){const d=parse(k);return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`}
 function renderGrade(full){
   const all=allStudents();const byC={};for(let c=1;c<=NCLS;c++)byC[c]=all.filter(r=>r.cls===c);
@@ -1245,12 +1265,12 @@ function renderAttend(byC){
   for(const d of data)for(const r of d.go){seq++;const tr=document.createElement("tr");
     const cells=[seq,d.cls,r.no,r.name||r.rosterName||""].map(v=>{const td=document.createElement("td");td.textContent=v;return td});
     const c=document.createElement("td");c.className="chk";const cb=document.createElement("input");cb.type="checkbox";cb.setAttribute("aria-label",`${d.cls}반 ${r.no}번 출석`);c.append(cb);
-    const e=document.createElement("td");e.className="hint";e.textContent=enteredOf(r)?"":"일정 미입력";
+    const e=document.createElement("td");e.className="hint";e.textContent=halfOn(r,attDate)?"반일 체험":"";
     tr.append(...cells,c,e);tb.append(tr)}
   t.append(tb);sc.append(t);w.append(sc)}
 function attSheet(X,k){const data=attData(k);const total=data.reduce((a,d)=>a+d.go.length,0);
   const aoa=[[`${dateLabel(k)} 3학년 등교 학생 출석부 (등교 ${total}명)`],["연번","반","번호","이름","출석 확인","비고"]];let q=0;
-  for(const d of data)for(const r of d.go){q++;aoa.push([q,d.cls,r.no,r.name||r.rosterName||"","",enteredOf(r)?"":"일정 미입력"])}
+  for(const d of data)for(const r of d.go){q++;aoa.push([q,d.cls,r.no,r.name||r.rosterName||"","",halfOn(r,k)?"반일 체험":""])}
   const ws=X.utils.aoa_to_sheet(aoa);ws["!cols"]=[{wch:5},{wch:5},{wch:6},{wch:12},{wch:12},{wch:14}];return ws}
 $("attxlsxall").onclick=async()=>{const max=parseInt($("attmax").value,10);const all=allStudents();
   const ks=SEL.filter(k=>!(max>0)||goingOn(all,k).length<=max);if(!ks.length){gStatus(`등교 인원이 ${max}명 이하인 날이 없어요.`);return}
@@ -1263,7 +1283,7 @@ $("attdate").onchange=()=>{attDate=$("attdate").value;renderGrade(false)};
 function attHTML(k){const data=attData(k);const total=data.reduce((a,d)=>a+d.go.length,0);
   const esc=v=>String(v).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
   let h=`<section><h1>${esc(dateLabel(k))} 3학년 등교 학생 출석부</h1><p class="sub">등교 예정 ${total}명${INFO[k]&&INFO[k].t!=="field"?" · "+esc(INFO[k].l):""} · 확인 교사: ____________</p><table><thead><tr><th>연번</th><th>반</th><th>번호</th><th>이름</th><th>출석 확인</th><th>비고</th></tr></thead><tbody>`;let q=0;
-  for(const d of data)for(const r of d.go){q++;h+=`<tr><td>${q}</td><td>${d.cls}</td><td>${r.no}</td><td>${esc(r.name||r.rosterName||"")}</td><td></td><td>${enteredOf(r)?"":"일정 미입력"}</td></tr>`}
+  for(const d of data)for(const r of d.go){q++;h+=`<tr><td>${q}</td><td>${d.cls}</td><td>${r.no}</td><td>${esc(r.name||r.rosterName||"")}</td><td></td><td>${halfOn(r,k)?"반일 체험":""}</td></tr>`}
   return h+"</tbody></table></section>"}
 function printHTML(body,title){const old=document.getElementById("printframe");if(old)old.remove();
   const f=document.createElement("iframe");f.id="printframe";f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";document.body.append(f);
@@ -1286,7 +1306,7 @@ function renderGrid(){
   fillGridCls();const c=gridCls;const list=allStudents().filter(r=>r.cls===c);
   const maxNo=Math.max(list.length?Math.max(...list.map(r=>+r.no||0)):0,gridRows.length&&gridRows[0].cls===c?gridRows.length:0,1);
   const byNo={};list.forEach(r=>{byNo[r.no]=r});
-  gridRows=[];for(let n=1;n<=maxNo;n++){const r=byNo[n];const ent=!!(r&&enteredOf(r));const init=ent?r.dates:SEL;gridRows.push({cls:c,no:n,name:r?(r.name||r.rosterName||""):"",orig:r?(r.name||r.rosterName||""):"",dates:new Set(init),origDates:init.slice().sort().join(","),submitted:!!(r&&r.submitted),entered:ent,used:r?(recOf(r).days||0):0})}
+  gridRows=[];for(let n=1;n<=maxNo;n++){const r=byNo[n];const ent=!!(r&&enteredOf(r));const init=ent?r.dates:SEL;const ih=ent?(r.half||[]).filter(k=>init.includes(k)):[];gridRows.push({cls:c,no:n,half:new Set(ih),origHalf:ih.slice().sort().join(","),name:r?(r.name||r.rosterName||""):"",orig:r?(r.name||r.rosterName||""):"",dates:new Set(init),origDates:init.slice().sort().join(","),submitted:!!(r&&r.submitted),entered:ent,used:r?(recOf(r).days||0):0})}
   gridDirty=false;drawGrid();gridStatus("")}
 function drawGrid(){
   const w=$("gridwrap");w.textContent="";const t=document.createElement("table");t.className="sheet";
@@ -1301,41 +1321,45 @@ function drawGrid(){
     inp.oninput=()=>{g.name=inp.value;markDirty(tr,g)};
     inp.onpaste=e=>{const txt=(e.clipboardData||window.clipboardData).getData("text");if(!/\n/.test(txt.trim()))return;e.preventDefault();
       const names=txt.replace(/\r/g,"").split("\n").map(x=>x.split("\t").pop().trim()).filter((x,i,arr)=>x||i<arr.length-1);
-      names.forEach((nm,j)=>{let row=gridRows[ri+j];if(!row){row={cls:g.cls,no:gridRows.length+1,name:"",orig:"",dates:new Set(SEL),origDates:"",submitted:false,entered:false,used:0};gridRows.push(row)}row.name=nm});
+      names.forEach((nm,j)=>{let row=gridRows[ri+j];if(!row){row={cls:g.cls,no:gridRows.length+1,name:"",orig:"",dates:new Set(SEL),origDates:"",half:new Set(),origHalf:"",submitted:false,entered:false,used:0};gridRows.push(row)}row.name=nm});
       gridDirty=true;drawGrid();gridStatus(`이름 ${names.length}개를 붙여 넣었어요. ‘저장’을 눌러 주세요.`,"")};
     b.append(inp);
     if(!g.entered)tr.classList.add("assume");
     const st=document.createElement("td");st.className="st";st.textContent=g.submitted?"학생제출":g.entered?"담임입력":"미입력";
     const tg=document.createElement("button");tg.type="button";tg.className="rowall";tg.textContent=g.dates.size?"모두 등교":"모두 체험";tg.title="이 학생의 모든 날을 한 번에 바꿔요";
-    tg.onclick=e=>{e.stopPropagation();const toAll=g.dates.size===0;g.dates=new Set(toAll?SEL:[]);tr.querySelectorAll("td.c").forEach(td=>td.classList.toggle("on",toAll));tg.textContent=toAll?"모두 등교":"모두 체험";updSum(tr,g);markDirty(tr,g)};
+    tg.onclick=e=>{e.stopPropagation();const toAll=g.dates.size===0;g.dates=new Set(toAll?SEL:[]);g.half=new Set();tr.querySelectorAll("td.c").forEach(td=>{td.classList.toggle("on",toAll);td.classList.remove("half")});tg.textContent=toAll?"모두 등교":"모두 체험";updSum(tr,g);markDirty(tr,g)};
     st.append(document.createElement("br"),tg);
     tr.append(a,b,st);
-    SEL.forEach(k=>{const td=document.createElement("td");td.className="c"+(g.dates.has(k)?" on":"");td.dataset.k=k;tr.append(td)});
+    SEL.forEach(k=>{const td=document.createElement("td");td.className="c"+(g.dates.has(k)?(g.half.has(k)?" on half":" on"):"");td.dataset.k=k;tr.append(td)});
     const sm=document.createElement("td");sm.className="sum";tr.append(sm);updSum(tr,g);
     tb.append(tr)});
   t.append(tb);w.append(t)}
-function updSum(tr,g){const sm=tr.querySelector("td.sum");const n=g.dates.size;const tot=Math.round((n+g.used)*10)/10;sm.textContent=g.used?`${n}+${g.used}`:String(n);
+function updSum(tr,g){const sm=tr.querySelector("td.sum");const n=dcount([...g.dates],[...g.half]);const tot=Math.round((n+g.used)*10)/10;sm.textContent=g.used?`${n}+${g.used}`:String(n);
   const over=tot>MAX&&!(!g.entered&&g.dates.size===SEL.length);sm.classList.toggle("over",over);sm.title=over?`${MAX}일 초과`:(!g.entered?"아직 입력 전 (모든 날 체험학습으로 가정)":"")}
-function markDirty(tr,g){const ch=g.name!==g.orig||[...g.dates].sort().join(",")!==g.origDates;tr.classList.toggle("dirty",ch);gridDirty=gridRows.some(x=>x.name!==x.orig||[...x.dates].sort().join(",")!==x.origDates);
+const gChanged=x=>x.name!==x.orig||[...x.dates].sort().join(",")!==x.origDates||[...x.half].sort().join(",")!==x.origHalf;
+function markDirty(tr,g){const ch=gChanged(g);tr.classList.toggle("dirty",ch);gridDirty=gridRows.some(gChanged);
   if(gridDirty)gridStatus("저장하지 않은 변경이 있어요.","")}
-function paintCell(td,on){const tr=td.parentElement;const g=gridRows[+tr.dataset.ri];const k=td.dataset.k;if(on)g.dates.add(k);else g.dates.delete(k);td.classList.toggle("on",on);updSum(tr,g);markDirty(tr,g);const tg=tr.querySelector(".rowall");if(tg)tg.textContent=g.dates.size?"모두 등교":"모두 체험"}
-$("gridwrap").addEventListener("pointerdown",e=>{const td=e.target.closest("td.c");if(!td)return;e.preventDefault();gridPaint=!td.classList.contains("on");paintCell(td,gridPaint);
+function cellState(td){return td.classList.contains("half")?2:td.classList.contains("on")?1:0}
+function paintCell(td,st){const tr=td.parentElement;const g=gridRows[+tr.dataset.ri];const k=td.dataset.k;
+  if(st===0){g.dates.delete(k);g.half.delete(k)}else{g.dates.add(k);if(st===2)g.half.add(k);else g.half.delete(k)}
+  td.classList.toggle("on",st>0);td.classList.toggle("half",st===2);updSum(tr,g);markDirty(tr,g);const tg=tr.querySelector(".rowall");if(tg)tg.textContent=g.dates.size?"모두 등교":"모두 체험"}
+$("gridwrap").addEventListener("pointerdown",e=>{const td=e.target.closest("td.c");if(!td)return;e.preventDefault();gridPaint=(cellState(td)+1)%3;paintCell(td,gridPaint);
   if(e.pointerType==="mouse")$("gridwrap").setPointerCapture?.(e.pointerId)});
-$("gridwrap").addEventListener("pointermove",e=>{if(gridPaint===null||e.pointerType!=="mouse")return;const el=document.elementFromPoint(e.clientX,e.clientY);const td=el&&el.closest&&el.closest("td.c");if(td&&td.classList.contains("on")!==gridPaint)paintCell(td,gridPaint)});
+$("gridwrap").addEventListener("pointermove",e=>{if(gridPaint===null||e.pointerType!=="mouse")return;const el=document.elementFromPoint(e.clientX,e.clientY);const td=el&&el.closest&&el.closest("td.c");if(td&&cellState(td)!==gridPaint)paintCell(td,gridPaint)});
 window.addEventListener("pointerup",()=>{gridPaint=null});
-$("gridaddrow").onclick=()=>{gridRows.push({cls:gridCls,no:gridRows.length+1,name:"",orig:"",dates:new Set(SEL),origDates:"",submitted:false,entered:false,used:0});drawGrid();
+$("gridaddrow").onclick=()=>{gridRows.push({cls:gridCls,no:gridRows.length+1,name:"",orig:"",dates:new Set(SEL),origDates:"",half:new Set(),origHalf:"",submitted:false,entered:false,used:0});drawGrid();
   const last=gridRows[gridRows.length-1];const inp=$(`gn-${last.cls}-${last.no}`);if(inp)inp.focus()};
 let gridPendingCls=0;
 $("gridcls").onchange=()=>{const v=+$("gridcls").value;if(gridDirty){gridPendingCls=v;$("gridcls").value=gridCls;
     gridStatus("저장하지 않은 변경이 있어요. 먼저 ‘저장’을 누르거나, 다시 반을 고르면 변경을 버리고 이동해요.","err");gridDirty=false;return}
   gridCls=v;gridRows=[];renderGrid()};
 $("gridsave").onclick=async()=>{
-  const changed=g=>g.name!==g.orig||[...g.dates].sort().join(",")!==g.origDates;
+  const changed=gChanged;
   const ch=gridRows.filter(g=>changed(g)||(!g.submitted&&!g.entered&&(g.name||g.orig)));
   if(!ch.length){gridStatus("바뀐 내용이 없어요.","");return}
   const noName=ch.filter(g=>!g.name.trim()&&g.dates.size);if(noName.length){gridStatus(`${noName.map(g=>g.no+"번").join(", ")} 이름을 먼저 넣어 주세요.`,"err");return}
   $("gridsave").disabled=true;gridStatus("저장하는 중…","");
-  try{const entries=ch.map(g=>{const d=[...g.dates].sort((a,b)=>IDX.get(a)-IDX.get(b));const e={no:g.no,dates:d,summary:periods(d).map(periodText).join(" / ")};if(g.name!==g.orig)e.name=g.name.trim();return e});
+  try{const entries=ch.map(g=>{const d=[...g.dates].sort((a,b)=>IDX.get(a)-IDX.get(b));const hf=[...g.half].filter(k=>g.dates.has(k));const e={no:g.no,dates:d,half:hf,summary:periods(d,hf).map(periodText).join(" / ")};if(g.name!==g.orig)e.name=g.name.trim();return e});
     const n=await run("tSaveGrid",PW,gridCls,entries);gridDirty=false;gridStatus(`${gridCls}반 ${n}명을 저장했어요.`,"ok");await loadTeacher();renderGrid();gridStatus(`${gridCls}반 ${n}명을 저장했어요.`,"ok")}
   catch(e){gridStatus(e.msg||"저장하지 못했어요. 잠시 후 다시 눌러 주세요.","err")}
   finally{$("gridsave").disabled=false}};
@@ -1349,7 +1373,7 @@ function openViewer(r){viewRow=Object.assign({},r,{forms:JSON.parse(JSON.stringi
   $("viewmodal").hidden=false;$("viewclose").focus();renderViewer()}
 async function renderViewer(){
   const r=viewRow;if(!r)return;const my=++viewSeq;const box=$("viewbody");box.textContent="";
-  const ctx=studentCtx_(r);const ps=periods(r.dates);
+  const ctx=studentCtx_(r);const ps=periods(r.dates,r.half);
   if(!ps.length){const p=document.createElement("p");p.className="hint";p.textContent="체험학습 일정이 없어요.";box.append(p);return}
   for(const [i,p] of ps.entries()){
     const sec=document.createElement("section");sec.className="vperiod";
@@ -1374,8 +1398,8 @@ async function renderViewer(){
   }
 }
 function openTeacherDoc(r,kind,start){
-  const base=rows.find(x=>x.id===r.id)||r;editRow=base;editSet=new Set(r.dates);editForms=viewRow&&viewRow.id===r.id?viewRow.forms:JSON.parse(JSON.stringify(r.forms||{}));editDirty=false;
-  openDoc({teacher:true,name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods([...editSet]),dates:()=>[...editSet],used:()=>recOf(r).days||0,forms:editForms,
+  const base=rows.find(x=>x.id===r.id)||r;editRow=base;editSet=new Set(r.dates);editHalf=new Set((r.half||[]).filter(k=>editSet.has(k)));editForms=viewRow&&viewRow.id===r.id?viewRow.forms:JSON.parse(JSON.stringify(r.forms||{}));editDirty=false;
+  openDoc({teacher:true,name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods([...editSet],[...editHalf]),dates:()=>[...editSet],half:()=>[...editHalf],agreed:()=>!!r.submitted,used:()=>recOf(r).days||0,forms:editForms,
     save:async()=>{if(!r.submitted)throw{msg:"아직 제출하지 않은 학생이라 입력 내용은 저장되지 않아요. 인쇄나 PDF로는 저장할 수 있어요."};
       await run("tSavePlan",PW,r.id,{forms:JSON.parse(JSON.stringify(editForms))});loadTeacher()}},kind,start)}
 $("viewprintall").onclick=async()=>{if(!viewRow)return;try{const pg=await pagesFor(viewRow,["plan","report"]);await printPages(pg,`${viewRow.no}번 ${viewRow.name||""} 체험학습 서류`);vStatus(`${pg.length}장 인쇄 창을 열었어요.`,"ok")}catch(e){vStatus("인쇄 창을 열지 못했어요. PDF로 저장해 주세요.","err")}};
@@ -1413,8 +1437,8 @@ $("bulkpdf").onclick=async()=>{
   $("bulkpdf").disabled=true;
   try{const pages=[];let i=0;
     for(const r of list){i++;cstatus(`서류 만드는 중… ${i}/${list.length}명`);
-      const ctx={name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods(r.dates),dates:()=>r.dates,used:()=>recOf(r).days||0,forms:r.forms||{}};
-      for(const p of periods(r.dates))for(const k of kinds)pages.push(await docFor(k,ctx,p.start))}
+      const ctx={name:r.name||r.rosterName||"",cls:r.cls,no:r.no,periods:()=>periods(r.dates,r.half),dates:()=>r.dates,half:()=>r.half||[],agreed:()=>!!r.submitted,used:()=>recOf(r).days||0,forms:r.forms||{}};
+      for(const p of periods(r.dates,r.half))for(const k of kinds)pages.push(await docFor(k,ctx,p.start))}
     cstatus(`PDF로 묶는 중… (${pages.length}쪽)`);
     const blob=await pagesToPdf(pages);const nm={plan:"신청서",report:"결과보고서",both:"신청서_보고서"}[kind];
     await dl.save({filename:`3-${viewCls}반_체험학습_${nm}.pdf`,data:blob});cstatus(`${list.length}명, ${pages.length}쪽을 PDF로 저장했어요.`)}
@@ -1425,7 +1449,7 @@ $("bulkpdf").onclick=async()=>{
 function statusOf(r){const ps=psOf(r);const t=totalOf(r);
   if(!r.submitted)return r.dates.length?"미제출(시트 일정)":"미제출";
   if(t>MAX)return `${Math.round((t-MAX)*10)/10}일 초과`;if(ps.length>4)return `기간 ${ps.length}개`;if(!r.dates.length)return "선택 없음";return "확인"}
-const pText=p=>`${fmt(p.start)}${p.start!==p.end?" ~ "+fmt(p.end):""} (${p.n})일`;
+const pText=p=>`${fmt(p.start)}${p.half?" 반일":p.start!==p.end?" ~ "+fmt(p.end):""} (${p.n})일`;
 async function drawPeriods(list,cls){
   try{await Promise.all([document.fonts.load('700 24px "IBM Plex Sans KR"'),document.fonts.load('40px "Do Hyeon"')])}catch(e){}
   const F='"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif',DF='"Do Hyeon",'+F;
@@ -1444,7 +1468,7 @@ async function drawPeriods(list,cls){
     const ps=psOf(r);const u=usedOf(r);const t=totalOf(r);const st=statusOf(r);
     x.font=`500 16px ${F}`;x.fillStyle=r.submitted?INK:MUTE;
     const cell=(i,txt,col,bold)=>{x.fillStyle=col||(r.submitted?INK:MUTE);x.font=`${bold?700:500} 16px ${F}`;let t2=String(txt);while(x.measureText(t2).width>cols[i][1]-14&&t2.length>2)t2=t2.slice(0,-1);x.fillText(t2,xs[i]+8,y+24)};
-    cell(0,r.no);cell(1,(r.name||r.rosterName||"")+(r.submitted?"":"*"));cell(2,u?u+"일":"-");cell(3,r.dates.length+"일");cell(4,Math.round(t*10)/10+"일",t>MAX?MUST:null,true);
+    cell(0,r.no);cell(1,(r.name||r.rosterName||"")+(r.submitted?"":"*"));cell(2,u?u+"일":"-");cell(3,rcnt(r)+"일");cell(4,Math.round(t*10)/10+"일",t>MAX?MUST:null,true);
     for(let i=0;i<4;i++){const p=ps[i];if(p)cell(5+i,pText(p)+(p.past?" ·학기중":""),p.past?MUTE:null)}
     cell(9,ps.length>4?`${st} (+${ps.length-4})`:st,st==="확인"?GRN:(/초과/.test(st)?MUST:"#a85f00"),true)});
   x.strokeStyle=INK;x.lineWidth=2;x.beginPath();x.moveTo(P,top+44);x.lineTo(W-P,top+44);x.stroke();
@@ -1465,7 +1489,7 @@ $("perxlsx").onclick=async()=>{
     const head=["번호","이름","제출","학기 중","수능 이후","합계",...Array.from({length:maxP},(_,i)=>`${i+1}차`),"상태"];
     const aoa=[[`3학년 ${viewCls}반 학생별 체험학습 신청 기간 (담임 ${TEACHERS[viewCls]||""})`],head];
     for(const r of list){const ps=psOf(r);
-      aoa.push([r.no,r.name||r.rosterName||"",r.submitted?"제출":"미제출",usedOf(r),r.dates.length,Math.round(totalOf(r)*10)/10,
+      aoa.push([r.no,r.name||r.rosterName||"",r.submitted?"제출":"미제출",usedOf(r),rcnt(r),Math.round(totalOf(r)*10)/10,
         ...Array.from({length:maxP},(_,i)=>ps[i]?pText(ps[i])+(ps[i].past?" (학기 중)":""):""),statusOf(r)])}
     const ws=X.utils.aoa_to_sheet(aoa);ws["!cols"]=[{wch:5},{wch:10},{wch:7},{wch:7},{wch:8},{wch:6},...Array.from({length:maxP},()=>({wch:30})),{wch:16}];
     const wb=X.utils.book_new();X.utils.book_append_sheet(wb,ws,`3-${viewCls}`);
@@ -1498,9 +1522,11 @@ async function drawHeat(list,cls){
     if(j%2){x.fillStyle="rgba(30,36,51,.035)";x.fillRect(P,y,W-2*P,RH)}
     x.fillStyle=r.submitted?INK:MUTE;x.font=`500 17px ${F}`;x.textAlign="left";
     x.fillText(`${String(r.no).padStart(2," ")}  ${r.name||r.rosterName||""}${r.submitted?"":"*"}`,P+6,y+23);
-    SEL.forEach((k,i)=>{if(s.has(k)){tot[i]++;rr(x,x0+i*CW+5,y+5,CW-10,RH-10,5);x.fillStyle=r.submitted?GRN:"#9fd3b4";x.fill()}});
-    const u=recOf(r).days||0;const t=Math.round((u+r.dates.length)*10)/10;
-    x.textAlign="center";x.fillStyle=t>MAX?MUST:INK;x.font=`700 17px ${F}`;x.fillText(u?`${r.dates.length}+${u}`:String(r.dates.length),x0+SEL.length*CW+TW/2,y+23)});
+    const hs=new Set(r.half||[]);
+    SEL.forEach((k,i)=>{if(s.has(k)){tot[i]++;rr(x,x0+i*CW+5,y+5,CW-10,RH-10,5);x.fillStyle=r.submitted?GRN:"#9fd3b4";x.fill();
+      if(hs.has(k)){rr(x,x0+i*CW+5,y+5+(RH-10)/2,CW-10,(RH-10)/2,3);x.fillStyle="#ffffff";x.fill();x.fillStyle=GRN;x.font=`700 11px ${F}`;x.textAlign="center";x.fillText("½",x0+i*CW+CW/2,y+RH-8);x.textAlign="left"}}});
+    const u=recOf(r).days||0;const rc=rcnt(r);const t=Math.round((u+rc)*10)/10;
+    x.textAlign="center";x.fillStyle=t>MAX?MUST:INK;x.font=`700 17px ${F}`;x.fillText(u?`${rc}+${u}`:String(rc),x0+SEL.length*CW+TW/2,y+23)});
   const fy=top+HH+studs.length*RH;
   x.strokeStyle=INK;x.lineWidth=2;x.beginPath();x.moveTo(P,fy);x.lineTo(W-P,fy);x.stroke();
   x.strokeStyle=LINE;x.lineWidth=1;for(let i=0;i<=SEL.length;i++){x.beginPath();x.moveTo(x0+i*CW+.5,top+HH-6);x.lineTo(x0+i*CW+.5,fy);x.stroke()}
@@ -1526,7 +1552,7 @@ $("heatxlsx").onclick=async()=>{
     const head=["번호","이름","제출",...SEL.map(k=>`${short(k)}(${WD[parse(k).getDay()]})`),"수능 이후","학기 중","합계"];
     const aoa=[[`3학년 ${viewCls}반 날짜별 체험학습 인원표`],head];const tot=SEL.map(()=>0);
     for(const r of list){const s=new Set(r.dates);const u=recOf(r).days||0;
-      aoa.push([r.no,r.name||r.rosterName||"",r.submitted?"제출":"미제출",...SEL.map((k,i)=>{if(s.has(k)){tot[i]++;return "체험"}return ""}),r.dates.length,u,Math.round((u+r.dates.length)*10)/10])}
+      aoa.push([r.no,r.name||r.rosterName||"",r.submitted?"제출":"미제출",...SEL.map((k,i)=>{if(s.has(k)){tot[i]++;return (r.half||[]).includes(k)?"반일":"체험"}return ""}),rcnt(r),u,Math.round((u+r.dates.length)*10)/10])}
     aoa.push(["","체험학습 인원","",...tot]);aoa.push(["","등교 인원","",...tot.map(n=>list.length-n)]);
     const ws=X.utils.aoa_to_sheet(aoa);ws["!cols"]=[{wch:5},{wch:10},{wch:6},...SEL.map(()=>({wch:8})),{wch:8},{wch:7},{wch:6}];
     const wb=X.utils.book_new();X.utils.book_append_sheet(wb,ws,`3-${viewCls}`);
@@ -1552,8 +1578,8 @@ async function drawTeacherCal(list,cls){
     for(let d=from;d<=to;d++){const t=new Date(y,m-1,d);const w=t.getDay();if(w===0||w===6)continue;
       const col=w-1;if(cells.length&&col<=cells[cells.length-1].col)row++;
       const k=key(y,m,d);const info=INFO[k];const off=info&&info.t==="off";
-      const go=off?[]:studs.filter(r=>!r.dates.includes(k));const trip=off?0:N-go.length;
-      x.font=NAMEF;const items=go.map(r=>`${r.no} ${r.name||r.rosterName||""}${r.submitted?"":"*"}`);
+      const go=off?[]:studs.filter(r=>!r.dates.includes(k)||(r.half||[]).includes(k));const trip=off?0:N-studs.filter(r=>!r.dates.includes(k)).length;
+      x.font=NAMEF;const items=go.map(r=>`${r.no} ${r.name||r.rosterName||""}${(r.half||[]).includes(k)&&r.dates.includes(k)?"(반일)":""}${r.submitted?"":"*"}`);
       const lines=off?[]:wrapItems(x,items,CW-2*PADX,16);
       cells.push({d,col,row,k,info,off,go,trip,lines,h:off?100:Math.max(110,HEAD+lines.length*LH+14)})}
     const rowsH=[];cells.forEach(c=>{rowsH[c.row]=Math.max(rowsH[c.row]||0,c.h)});
@@ -1622,7 +1648,7 @@ $("xlsx").onclick=async()=>{
         const ps=r?psOf(r):[];
         for(let i=0;i<11;i++){const p=ps[i];top.push(p?rangeLabel(p.start,p.end):"");bot.push(p?p.n:"")}
         const total=r?totalOf(r):0;
-        top.push(total,Math.round((MAX-total)*10)/10,r?r.dates.length:0,
+        top.push(total,Math.round((MAX-total)*10)/10,r?rcnt(r):0,
           !r?"":!r.submitted?(r.dates.length?"미제출(시트 일정)":"미제출"):(total>MAX?`${Math.round((total-MAX)*10)/10}일 초과`:"제출")+(ps.length>11?" / 기간 11개 초과":""));
         aoa.push(top,bot);
       }
@@ -1661,8 +1687,8 @@ const cfgReady=run("getConfig").then(c=>{if(c){applyConfig(c);CFG_OK=true}}).cat
   setStatus("학사일정을 불러오지 못해 기본 일정으로 보여 드려요. 인터넷 연결을 확인하고 새로 고침해 주세요.","err")}).then(afterConfig);
 async function loadTeacher(){
   try{const d=await run("tAll",PW);
-    rows=(d.plans||[]).map(v=>({id:v.id,cls:+v.cls||0,no:+v.no,name:v.name,forms:v.forms&&typeof v.forms==="object"?v.forms:{},dates:Array.isArray(v.dates)?v.dates.filter(k=>IDX.has(k)):[],updatedAt:v.updatedAt}));
-    usedMap={};for(const k in (d.used||{})){const v=d.used[k];usedMap[k]={days:+v.days||0,past:Array.isArray(v.past)?v.past:[],pre:Array.isArray(v.pre)?v.pre:[],gridAt:+v.gridAt||0}}
+    rows=(d.plans||[]).map(v=>({id:v.id,cls:+v.cls||0,no:+v.no,name:v.name,forms:v.forms&&typeof v.forms==="object"?v.forms:{},dates:Array.isArray(v.dates)?v.dates.filter(k=>IDX.has(k)):[],half:Array.isArray(v.half)?v.half:[],updatedAt:v.updatedAt}));
+    usedMap={};for(const k in (d.used||{})){const v=d.used[k];usedMap[k]={days:+v.days||0,past:Array.isArray(v.past)?v.past:[],pre:Array.isArray(v.pre)?v.pre:[],preHalf:Array.isArray(v.preHalf)?v.preHalf:[],gridAt:+v.gridAt||0}}
     rosterMap={};(d.roster||[]).forEach(v=>{rosterMap[`${v.cls}-${v.no}`]={cls:+v.cls,no:+v.no,name:String(v.name||"")}});
     renderClass();if(!$("view-grade").hidden)renderGrade(false)}
   catch(e){cstatus(e.msg||"현황을 불러오지 못했어요.")}}
