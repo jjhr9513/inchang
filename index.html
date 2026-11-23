@@ -712,7 +712,9 @@ function refreshUsed(){clearTimeout(usedTimer);usedTimer=setTimeout(async()=>{
 ["cls","no"].forEach(id=>{$(id).addEventListener("input",refreshUsed);$(id).addEventListener("change",refreshUsed)});
 
 // ---------- 담임 화면 ----------
-let rows=[];let usedMap={};let rosterMap={};let pendingDel=null;let pendingOut=null;let attMap={};const attOf=(k,c,n)=>attMap[`${k}|${c}-${n}`]||"";const attNote=(r,c,k)=>[halfOn(r,k)?"반일 체험":"",attOf(k,c,r.no)].filter(Boolean).join(", ");let outErr="";const isOut=(c,n)=>{const ro=rosterMap[`${c}-${n}`];return !!(ro&&ro.out)};
+let rows=[];let usedMap={};let rosterMap={};let pendingDel=null;let pendingOut=null;let attMap={};let attPer={};const attOf=(k,c,n)=>attMap[`${k}|${c}-${n}`]||"";const perOf=(k,c,n)=>attOf(k,c,n)==="조퇴"?(attPer[`${k}|${c}-${n}`]||0):0;
+const attNote=(r,c,k)=>{const s=attOf(k,c,r.no),p=perOf(k,c,r.no);return [halfOn(r,k)?"반일 체험":"",s==="조퇴"&&p?`${p}교시 후 조퇴`:s].filter(Boolean).join(", ")};
+const attCells=(k,c,n)=>{const NP=nPer(k),s=attOf(k,c,n),p=perOf(k,c,n);return Array.from({length:NP},(_,i)=>s==="결석"?"결석":(s==="조퇴"&&p&&i>=p?"조퇴":""))};let outErr="";const isOut=(c,n)=>{const ro=rosterMap[`${c}-${n}`];return !!(ro&&ro.out)};
 const recOf=r=>usedMap[`${r.cls}-${r.no}`]||{days:0,past:[],pre:[]};
 const usedOf=r=>recOf(r).days||0;const rcnt=r=>dcount(r.dates,r.half);const totalOf=r=>Math.round((rcnt(r)+usedOf(r))*10)/10;
 const psOf=r=>allPeriods(recOf(r).past,r.dates,r.half);let myCls=0;let viewCls=0;
@@ -1280,13 +1282,17 @@ function renderAttend(byC){
     const c=document.createElement("td");c.className="chk";const sel=document.createElement("select");sel.className="sel attsel";sel.setAttribute("aria-label",`${d.cls}반 ${r.no}번 출결`);
     for(const v of ["","조퇴","결석"]){const o=document.createElement("option");o.value=v;o.textContent=v||"출석";sel.append(o)}sel.value=st;
     sel.onchange=()=>setAtt(attDate,d.cls,r.no,sel.value,r.name||r.rosterName||"",sel);c.append(sel);
-    const e=document.createElement("td");e.className="hint";e.textContent=halfOn(r,attDate)?"반일 체험":"";
+    const e=document.createElement("td");e.className="hint";e.textContent=halfOn(r,attDate)?"반일 체험 ":"";
+    if(st==="조퇴"){const NP=nPer(attDate);const ps=document.createElement("select");ps.className="sel attsel";ps.setAttribute("aria-label",`${d.cls}반 ${r.no}번 조퇴 교시`);
+      const o0=document.createElement("option");o0.value="0";o0.textContent="교시 선택";ps.append(o0);
+      for(let i=1;i<NP;i++){const o=document.createElement("option");o.value=String(i);o.textContent=`${i}교시 후 조퇴`;ps.append(o)}
+      ps.value=String(perOf(attDate,d.cls,r.no));ps.onchange=()=>setAtt(attDate,d.cls,r.no,"조퇴",r.name||r.rosterName||"",ps,+ps.value);e.append(ps)}
     tr.append(...cells,c,e);tb.append(tr)}
   t.append(tb);sc.append(t);w.append(sc)}
 const PERIODS_BY_WD={1:7,2:5,3:7,4:7,5:6};const nPer=k=>PERIODS_BY_WD[parse(k).getDay()]||7;
 function attSheet(X,k){const data=attData(k);const total=data.reduce((a,d)=>a+d.go.length,0);
   const aoa=[[`${dateLabel(k)} 3학년 등교 학생 출석부 (등교 ${total}명)`],["연번","반","번호","이름",...Array.from({length:nPer(k)},(_,i)=>`${i+1}교시`),"비고"]];let q=0;const NP=nPer(k);
-  for(const d of data)for(const r of d.go){q++;aoa.push([q,d.cls,r.no,r.name||r.rosterName||"",...Array(NP).fill(attOf(k,d.cls,r.no)==="결석"?"결석":""),attNote(r,d.cls,k)])}
+  for(const d of data)for(const r of d.go){q++;aoa.push([q,d.cls,r.no,r.name||r.rosterName||"",...attCells(k,d.cls,r.no),attNote(r,d.cls,k)])}
   const ws=X.utils.aoa_to_sheet(aoa);ws["!cols"]=[{wch:5},{wch:5},{wch:6},{wch:12},...Array(NP).fill({wch:6}),{wch:12}];return ws}
 $("attxlsxall").onclick=async()=>{const max=parseInt($("attmax").value,10);const all=allStudents();
   const ks=SEL.filter(k=>!(max>0)||goingOn(all,k).length<=max);if(!ks.length){gStatus(`등교 인원이 ${max}명 이하인 날이 없어요.`);return}
@@ -1299,7 +1305,7 @@ $("attdate").onchange=()=>{attDate=$("attdate").value;renderGrade(false)};
 function attHTML(k){const data=attData(k);const total=data.reduce((a,d)=>a+d.go.length,0);
   const esc=v=>String(v).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
   let h=`<section><h1>${esc(dateLabel(k))} 3학년 등교 학생 출석부</h1><p class="sub">등교 예정 ${total}명${(()=>{let ab=0,ea=0;for(const d of data)for(const r of d.go){const x=attOf(k,d.cls,r.no);if(x==="결석")ab++;else if(x==="조퇴")ea++}return ab||ea?` (결석 ${ab} · 조퇴 ${ea})`:""})()}${INFO[k]&&INFO[k].t!=="field"?" · "+esc(INFO[k].l):""} · 출석한 교시에 ○ · 확인 교사: ____________</p><table><thead><tr><th>연번</th><th>반</th><th>번호</th><th>이름</th>${Array.from({length:nPer(k)},(_,i)=>`<th class="per">${i+1}교시</th>`).join("")}<th>비고</th></tr></thead><tbody>`;let q=0;const NP=nPer(k);
-  for(const d of data)for(const r of d.go){q++;h+=`<tr><td>${q}</td><td>${d.cls}</td><td>${r.no}</td><td>${esc(r.name||r.rosterName||"")}</td>${attOf(k,d.cls,r.no)==="결석"?`<td colspan="${NP}" class="absrow">결 석</td>`:"<td></td>".repeat(NP)}<td${attOf(k,d.cls,r.no)?' class="attst"':""}>${esc(attNote(r,d.cls,k))}</td></tr>`}
+  for(const d of data)for(const r of d.go){q++;h+=`<tr><td>${q}</td><td>${d.cls}</td><td>${r.no}</td><td>${esc(r.name||r.rosterName||"")}</td>${(()=>{const s=attOf(k,d.cls,r.no),p=perOf(k,d.cls,r.no);if(s==="결석")return `<td colspan="${NP}" class="absrow">결 석</td>`;if(s==="조퇴"&&p>0&&p<NP)return "<td></td>".repeat(p)+`<td colspan="${NP-p}" class="absrow">조 퇴</td>`;return "<td></td>".repeat(NP)})()}<td${attOf(k,d.cls,r.no)?' class="attst"':""}>${esc(attNote(r,d.cls,k))}</td></tr>`}
   return h+"</tbody></table></section>"}
 function printHTML(body,title){const old=document.getElementById("printframe");if(old)old.remove();
   const f=document.createElement("iframe");f.id="printframe";f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";document.body.append(f);
@@ -1738,9 +1744,11 @@ function afterConfig(){
   renderAll();setH1();if(isTeacher)renderClass()}
 const cfgReady=run("getConfig").then(c=>{if(c){applyConfig(c);CFG_OK=true}}).catch(()=>{
   setStatus("학사일정을 불러오지 못해 기본 일정으로 보여 드려요. 인터넷 연결을 확인하고 새로 고침해 주세요.","err")}).then(afterConfig);
-async function setAtt(k,c,n,st,name,sel){const key=`${k}|${c}-${n}`;const prev=attMap[key]||"";sel.disabled=true;gStatus("저장하는 중…");
-  try{await run("tSetAtt",PW,k,c,n,st);if(st)attMap[key]=st;else delete attMap[key];gStatus(`${c}반 ${n}번 ${name}: ${st==="조퇴"?"조퇴로":(st||"출석")+"으로"} 저장했어요.`);renderGrade(false)}
-  catch(e){sel.value=prev;sel.disabled=false;const m=String(e.msg||"");gStatus(/알 수 없는 요청/.test(m)?"Apps Script가 아직 예전 버전이에요. Code.gs를 바꾼 뒤 ‘새 버전’으로 배포해 주세요.":(m||"저장하지 못했어요. 잠시 후 다시 해 주세요."))}}
+async function setAtt(k,c,n,st,name,sel,per){const key=`${k}|${c}-${n}`;const prevS=attMap[key]||"",prevP=attPer[key]||0;sel.disabled=true;gStatus("저장하는 중…");
+  if(st!=="조퇴")per=0;else if(per==null)per=prevS==="조퇴"?prevP:0;
+  try{await run("tSetAtt",PW,k,c,n,st,per);if(st)attMap[key]=st;else delete attMap[key];if(per)attPer[key]=per;else delete attPer[key];
+    gStatus(`${c}반 ${n}번 ${name}: ${st==="조퇴"?(per>0?per+"교시 후 조퇴로":"조퇴로 (비고에서 교시를 골라 주세요)"):(st||"출석")+"으로"} 저장했어요.`);renderGrade(false)}
+  catch(e){renderGrade(false);const m=String(e.msg||"");gStatus(/알 수 없는 요청/.test(m)?"Apps Script가 아직 예전 버전이에요. Code.gs를 바꾼 뒤 ‘새 버전’으로 배포해 주세요.":(m||"저장하지 못했어요. 잠시 후 다시 해 주세요."))}}
 async function setEnroll(c,n,out,name){cstatus("처리하는 중…");try{await run("tSetEnroll",PW,c,n,out,name);pendingOut=null;outErr="";cstatus(out?`${c}반 ${n}번 ${name}을(를) 명단에서 뺐어요. 인원 집계와 출석부에서 빠집니다.`:`${c}반 ${n}번을 명단에 되돌렸어요.`);await loadTeacher()}
   catch(e){const m=String(e.msg||"");outErr=/알 수 없는 요청/.test(m)?"Apps Script가 아직 예전 버전이에요. Code.gs를 바꾼 뒤 ‘배포 관리 → 연필 → 새 버전 → 배포’를 해 주세요.":(m||"바꾸지 못했어요. 잠시 후 다시 해 주세요.");cstatus(outErr);renderClass();renderOutList()}}
 function renderOutList(){let host=$("outlist");if(!host){host=document.createElement("div");host.id="outlist";host.className="hint";host.style.margin="8px 0";$("tablewrap").after(host)}
@@ -1751,7 +1759,7 @@ async function loadTeacher(){
   try{const d=await run("tAll",PW);
     rows=(d.plans||[]).map(v=>({id:v.id,cls:+v.cls||0,no:+v.no,name:v.name,forms:v.forms&&typeof v.forms==="object"?v.forms:{},dates:Array.isArray(v.dates)?v.dates.filter(k=>IDX.has(k)):[],half:Array.isArray(v.half)?v.half:[],updatedAt:v.updatedAt}));
     usedMap={};for(const k in (d.used||{})){const v=d.used[k];usedMap[k]={days:+v.days||0,past:Array.isArray(v.past)?v.past:[],pre:Array.isArray(v.pre)?v.pre:[],preHalf:Array.isArray(v.preHalf)?v.preHalf:[],gridAt:+v.gridAt||0}}
-    attMap={};(d.att||[]).forEach(v=>{if(v&&v.d&&v.s)attMap[`${v.d}|${+v.c}-${+v.n}`]=String(v.s)});
+    attMap={};attPer={};(d.att||[]).forEach(v=>{if(v&&v.d&&v.s){const kk=`${v.d}|${+v.c}-${+v.n}`;attMap[kk]=String(v.s);if(+v.p)attPer[kk]=+v.p}});
     rosterMap={};(d.roster||[]).forEach(v=>{rosterMap[`${v.cls}-${v.no}`]={cls:+v.cls,no:+v.no,name:String(v.name||""),out:!!v.out}});
     renderClass();if(!$("view-grade").hidden)renderGrade(false)}
   catch(e){cstatus(e.msg||"현황을 불러오지 못했어요.")}}
