@@ -712,7 +712,7 @@ function refreshUsed(){clearTimeout(usedTimer);usedTimer=setTimeout(async()=>{
 ["cls","no"].forEach(id=>{$(id).addEventListener("input",refreshUsed);$(id).addEventListener("change",refreshUsed)});
 
 // ---------- 담임 화면 ----------
-let rows=[];let usedMap={};let rosterMap={};let pendingDel=null;
+let rows=[];let usedMap={};let rosterMap={};let pendingDel=null;let pendingOut=null;const isOut=(c,n)=>{const ro=rosterMap[`${c}-${n}`];return !!(ro&&ro.out)};
 const recOf=r=>usedMap[`${r.cls}-${r.no}`]||{days:0,past:[],pre:[]};
 const usedOf=r=>recOf(r).days||0;const rcnt=r=>dcount(r.dates,r.half);const totalOf=r=>Math.round((rcnt(r)+usedOf(r))*10)/10;
 const psOf=r=>allPeriods(recOf(r).past,r.dates,r.half);let myCls=0;let viewCls=0;
@@ -756,13 +756,13 @@ function stat(k,v,bad){const d=document.createElement("div");d.className="stat"+
 
 function viewList(){
   const seen=new Set();const out=[];
-  for(const r of rows){const k=`${r.cls}-${r.no}`;seen.add(k);const ro=rosterMap[k];out.push({...r,submitted:true,rosterName:ro?ro.name:""})}
-  for(const k in rosterMap){if(seen.has(k))continue;const ro=rosterMap[k];const rec=usedMap[k];
+  for(const r of rows){const k=`${r.cls}-${r.no}`;seen.add(k);if(isOut(r.cls,r.no))continue;const ro=rosterMap[k];out.push({...r,submitted:true,rosterName:ro?ro.name:""})}
+  for(const k in rosterMap){if(seen.has(k))continue;const ro=rosterMap[k];if(ro.out)continue;const rec=usedMap[k];
     out.push({id:null,cls:ro.cls,no:ro.no,name:ro.name,rosterName:ro.name,dates:rec&&Array.isArray(rec.pre)?rec.pre.filter(x=>IDX.has(x)):[],half:rec&&Array.isArray(rec.preHalf)?rec.preHalf:[],submitted:false})}
   return out.filter(r=>!viewCls||r.cls===viewCls)
     .sort((a,b)=>((a.cls||99)-(b.cls||99))||((a.no||999)-(b.no||999)));
 }
-function renderClass(){
+function renderClass(){try{renderOutList()}catch(e){}
   if(!viewCls){$("stats").textContent="";const tw=$("tablewrap");tw.textContent="";$("heatwrap").textContent="";
     const e=document.createElement("div");e.className="empty-state";const b=document.createElement("b");b.textContent="‘내 담임 반’을 먼저 골라 주세요.";
     const sp=document.createElement("span");sp.textContent="위의 ‘내 담임 반’에서 반을 고르면 그 반 학생들의 현황이 나타납니다.";e.append(b,sp);tw.append(e);renderPast();return}
@@ -817,6 +817,11 @@ function renderClass(){
     if(r.dates.length){for(const [kind,lab] of [["report","보고서"],["plan","신청서"]]){const b=document.createElement("button");b.className="linkbtn";b.style.color="var(--field)";b.textContent=lab;
       b.title=`${r.no}번 ${r.name||r.rosterName||""} ${lab} 인쇄`;b.onclick=()=>printStudent(r,[kind]);dc.prepend(b)}
       const vb=document.createElement("button");vb.className="linkbtn";vb.style.color="var(--plum)";vb.style.fontWeight="700";vb.textContent="서류보기";vb.onclick=()=>openViewer(r);dc.prepend(vb)}
+    {const key=`${r.cls}-${r.no}`;
+      if(pendingOut===key){const w=document.createElement("span");w.className="confirm";w.append("명단에서 뺄까요?");
+        const y=document.createElement("button");y.className="linkbtn";y.textContent="빼기";y.onclick=()=>setEnroll(r.cls,r.no,true,r.name||r.rosterName||"");
+        const n=document.createElement("button");n.className="linkbtn";n.style.color="var(--muted)";n.textContent="취소";n.onclick=()=>{pendingOut=null;renderClass()};w.append(y,n);dc.append(w)}
+      else{const ob=document.createElement("button");ob.className="linkbtn";ob.style.color="var(--muted)";ob.textContent="전출";ob.title="전학 등으로 명단에서 빼기 (되돌릴 수 있어요)";ob.onclick=()=>{pendingOut=key;renderClass()};dc.append(ob)}}
     const ib=document.createElement("button");ib.className="linkbtn";ib.style.color="var(--event)";ib.textContent="사진";
     ib.onclick=()=>openImage(infoFromRow(r));dc.prepend(ib);
     tr.append(dc);body.append(tr);
@@ -1312,7 +1317,7 @@ function renderGrid(){
   fillGridCls();const c=gridCls;const list=allStudents().filter(r=>r.cls===c);
   const maxNo=Math.max(list.length?Math.max(...list.map(r=>+r.no||0)):0,gridRows.length&&gridRows[0].cls===c?gridRows.length:0,1);
   const byNo={};list.forEach(r=>{byNo[r.no]=r});
-  gridRows=[];for(let n=1;n<=maxNo;n++){const r=byNo[n];const ent=!!(r&&enteredOf(r));const init=ent?r.dates:SEL;const ih=ent?(r.half||[]).filter(k=>init.includes(k)):[];gridRows.push({cls:c,no:n,half:new Set(ih),origHalf:ih.slice().sort().join(","),name:r?(r.name||r.rosterName||""):"",orig:r?(r.name||r.rosterName||""):"",dates:new Set(init),origDates:init.slice().sort().join(","),submitted:!!(r&&r.submitted),entered:ent,used:r?(recOf(r).days||0):0})}
+  gridRows=[];for(let n=1;n<=maxNo;n++){if(isOut(c,n))continue;const r=byNo[n];const ent=!!(r&&enteredOf(r));const init=ent?r.dates:SEL;const ih=ent?(r.half||[]).filter(k=>init.includes(k)):[];gridRows.push({cls:c,no:n,half:new Set(ih),origHalf:ih.slice().sort().join(","),name:r?(r.name||r.rosterName||""):"",orig:r?(r.name||r.rosterName||""):"",dates:new Set(init),origDates:init.slice().sort().join(","),submitted:!!(r&&r.submitted),entered:ent,used:r?(recOf(r).days||0):0})}
   gridDirty=false;drawGrid();gridStatus("")}
 function drawGrid(){
   const w=$("gridwrap");w.textContent="";const t=document.createElement("table");t.className="sheet";
@@ -1353,7 +1358,7 @@ $("gridwrap").addEventListener("pointerdown",e=>{const td=e.target.closest("td.c
   if(e.pointerType==="mouse")$("gridwrap").setPointerCapture?.(e.pointerId)});
 $("gridwrap").addEventListener("pointermove",e=>{if(gridPaint===null||e.pointerType!=="mouse")return;const el=document.elementFromPoint(e.clientX,e.clientY);const td=el&&el.closest&&el.closest("td.c");if(td&&cellState(td)!==gridPaint)paintCell(td,gridPaint)});
 window.addEventListener("pointerup",()=>{gridPaint=null});
-$("gridaddrow").onclick=()=>{gridRows.push({cls:gridCls,no:gridRows.length+1,name:"",orig:"",dates:new Set(SEL),origDates:"",half:new Set(),origHalf:"",submitted:false,entered:false,used:0});drawGrid();
+$("gridaddrow").onclick=()=>{const nx=Math.max(0,...gridRows.map(g=>g.no),...Object.values(rosterMap).filter(ro=>ro.cls===gridCls).map(ro=>ro.no))+1;gridRows.push({cls:gridCls,no:nx,name:"",orig:"",dates:new Set(SEL),origDates:"",half:new Set(),origHalf:"",submitted:false,entered:false,used:0});drawGrid();
   const last=gridRows[gridRows.length-1];const inp=$(`gn-${last.cls}-${last.no}`);if(inp)inp.focus()};
 let gridPendingCls=0;
 $("gridcls").onchange=()=>{const v=+$("gridcls").value;if(gridDirty){gridPendingCls=v;$("gridcls").value=gridCls;
@@ -1728,11 +1733,17 @@ function afterConfig(){
   renderAll();setH1();if(isTeacher)renderClass()}
 const cfgReady=run("getConfig").then(c=>{if(c){applyConfig(c);CFG_OK=true}}).catch(()=>{
   setStatus("학사일정을 불러오지 못해 기본 일정으로 보여 드려요. 인터넷 연결을 확인하고 새로 고침해 주세요.","err")}).then(afterConfig);
+async function setEnroll(c,n,out,name){try{await run("tSetEnroll",PW,c,n,out,name);pendingOut=null;cstatus(out?`${c}반 ${n}번 ${name}을(를) 명단에서 뺐어요. 인원 집계와 출석부에서 빠집니다.`:`${c}반 ${n}번을 명단에 되돌렸어요.`);await loadTeacher()}
+  catch(e){cstatus(e.msg||"바꾸지 못했어요. 잠시 후 다시 해 주세요.")}}
+function renderOutList(){let host=$("outlist");if(!host){host=document.createElement("div");host.id="outlist";host.className="hint";host.style.margin="8px 0";$("tablewrap").after(host)}
+  host.textContent="";const outs=Object.values(rosterMap).filter(ro=>ro.out&&(!viewCls||ro.cls===viewCls)).sort((a,b)=>a.cls-b.cls||a.no-b.no);if(!outs.length)return;
+  host.append("명단에서 뺀 학생(전출): ");outs.forEach((ro,i)=>{if(i)host.append(" · ");host.append(`${viewCls?"":ro.cls+"반 "}${ro.no}번 ${ro.name} `);
+    const b=document.createElement("button");b.className="linkbtn";b.textContent="되돌리기";b.onclick=()=>setEnroll(ro.cls,ro.no,false,ro.name);host.append(b)})}
 async function loadTeacher(){
   try{const d=await run("tAll",PW);
     rows=(d.plans||[]).map(v=>({id:v.id,cls:+v.cls||0,no:+v.no,name:v.name,forms:v.forms&&typeof v.forms==="object"?v.forms:{},dates:Array.isArray(v.dates)?v.dates.filter(k=>IDX.has(k)):[],half:Array.isArray(v.half)?v.half:[],updatedAt:v.updatedAt}));
     usedMap={};for(const k in (d.used||{})){const v=d.used[k];usedMap[k]={days:+v.days||0,past:Array.isArray(v.past)?v.past:[],pre:Array.isArray(v.pre)?v.pre:[],preHalf:Array.isArray(v.preHalf)?v.preHalf:[],gridAt:+v.gridAt||0}}
-    rosterMap={};(d.roster||[]).forEach(v=>{rosterMap[`${v.cls}-${v.no}`]={cls:+v.cls,no:+v.no,name:String(v.name||"")}});
+    rosterMap={};(d.roster||[]).forEach(v=>{rosterMap[`${v.cls}-${v.no}`]={cls:+v.cls,no:+v.no,name:String(v.name||""),out:!!v.out}});
     renderClass();if(!$("view-grade").hidden)renderGrade(false)}
   catch(e){cstatus(e.msg||"현황을 불러오지 못했어요.")}}
 let pollTimer=0;
