@@ -383,7 +383,13 @@ tbody tr:hover{background:var(--line-2)}
     <div class="panel">
       <div class="headrow"><h2>일정 입력 (시스템을 쓰지 않은 반용)</h2>
         <div class="actions"><label for="gridcls" class="hint">반 <select id="gridcls" class="sel"></select></label>
-          <button class="btn primary" id="gridsave" type="button">저장</button><button class="btn" id="gridaddrow" type="button">줄 추가</button></div></div>
+          <button class="btn primary" id="gridsave" type="button">저장</button><button class="btn" id="gridaddrow" type="button">줄 추가</button><button class="btn" id="gridpastebtn" type="button">엑셀 표 붙여넣기</button></div></div>
+      <div id="gridpastebox" hidden style="margin:8px 0;padding:12px;border:1px dashed var(--line-2);border-radius:10px">
+        <p class="hint" style="margin:0 0 6px">엑셀이나 구글 시트에서 <b>이름 · 기간(11/24-12/4 형식) · 합계</b> 줄과 그 아래 <b>일수</b> 줄을 그대로 복사해 붙여 넣으세요. 이름으로 학생을 찾아 체험학습 날짜를 채워요. 수능 전 기간은 학기 중 사용으로 보고 건너뜁니다.</p>
+        <textarea id="gridpastetxt" class="sel" rows="6" style="width:100%;font:13px/1.4 monospace" placeholder="강준우&#9;11/11-13&#9;11/25-26&#9;11/30&#9;...&#9;20"></textarea>
+        <div class="actions" style="margin-top:6px"><button class="btn primary" id="gridpastego" type="button">표에 채우기</button><button class="btn" id="gridpastecancel" type="button">닫기</button></div>
+        <ul id="gridpastemsg" class="notes" style="margin:6px 0 0"></ul>
+      </div>
       <p class="hint">일정을 입력하지 않은 학생은 처음부터 <b>모든 날이 체험학습(연한 초록)</b>으로 채워져 있어요. <b>등교하는 날만 눌러서 흰 칸으로</b> 바꾸면 됩니다. 칸은 누를 때마다 <b>등교 → 체험 → 반일(0.5일) → 등교</b> 순서로 바뀌어요. 매일 등교하는 학생은 상태 칸의 <b>‘모두 등교’</b>를 한 번 누르면 됩니다. 누른 채로 끌면 여러 칸이 한 번에 바뀌어요. 이름 칸에는 엑셀에서 복사한 이름 목록을 한 번에 붙여 넣을 수 있어요. ‘저장’을 누르면 출석부와 등교 인원에 바로 반영됩니다. 학생이 직접 제출한 줄을 고치면 그 학생 일정도 함께 바뀝니다.</p>
       <p class="status" id="gridstatus" style="min-height:1.5em;margin:0">&nbsp;</p>
       <div class="scroll" id="gridwrap"></div>
@@ -613,7 +619,6 @@ const allPeriods=(past,dates,half)=>[...(past||[]).map(p=>({start:p.from,end:p.t
 function warnings(dates){
   const hf=[...halfSet];const ps=allPeriods(myPast,dates,hf);const w=[];const L=limit();const nn=dcount(dates,hf);const ov=Math.round((nn-L)*10)/10;
   if(nn>L)w.push({bad:true,t:usedDays?`${ov}일 초과했어요. 학기 중 ${usedDays}일을 이미 써서 남은 일수는 ${L}일입니다.`:`${ov}일 초과했어요. 체험학습은 최대 ${MAX}일입니다.`});
-  if(ps.length>4)w.push({bad:true,t:`학기 중 기간까지 합쳐 ${ps.length}개 기간이에요. 신청서 칸은 4차까지라 날짜를 이어서 잡아 주세요.`});
   const ev=dates.filter(k=>INFO[k]&&INFO[k].t==="ev");
   if(ev.length)w.push({t:`학교 행사일(${ev.map(short).join(", ")})이 포함되어 있어요. 행사에 참여하지 않는 날로 처리됩니다.`});
   const must=dates.filter(k=>INFO[k]&&INFO[k].t==="must");
@@ -766,7 +771,7 @@ function renderClass(){
   const split=list.filter(r=>psOf(r).length>4).length;const sub=list.filter(r=>r.submitted).length;
   const avg=list.length?(list.reduce((s,r)=>s+totalOf(r),0)/list.length).toFixed(1):"0";
   const st=$("stats");st.textContent="";
-  st.append(stat(all?"제출 (3학년 전체)":`${viewCls}반 제출`,`${sub} / ${list.length}명`),stat("평균 사용 일수(학기 중 포함)",avg+"일"),stat("20일 초과",over+"명",over>0),stat("기간 5개 이상",split+"명",split>0));
+  st.append(stat(all?"제출 (3학년 전체)":`${viewCls}반 제출`,`${sub} / ${list.length}명`),stat("평균 사용 일수(학기 중 포함)",avg+"일"),stat("20일 초과",over+"명",over>0));
 
   const tw=$("tablewrap");tw.textContent="";const hw=$("heatwrap");hw.textContent="";
   renderPast();
@@ -777,19 +782,19 @@ function renderClass(){
     const sp=document.createElement("span");sp.textContent="‘우리반 학생용 링크 복사’로 받은 주소를 학생들에게 보내 주세요. 학생이 날짜를 고르고 제출하면 여기에 번호순으로 나타납니다.";
     e.append(b,sp);tw.append(e);return}
 
+  const maxP=Math.max(4,...list.map(r=>psOf(r).length));
   const tb=document.createElement("table");
-  tb.innerHTML="<thead><tr>"+(all?"<th>반</th>":"")+"<th>번호</th><th>이름</th><th>학기 중</th><th>수능 이후</th><th>합계</th><th>1차</th><th>2차</th><th>3차</th><th>4차</th><th>상태</th><th>최근 제출</th><th></th></tr></thead>";
+  tb.innerHTML="<thead><tr>"+(all?"<th>반</th>":"")+"<th>번호</th><th>이름</th><th>학기 중</th><th>수능 이후</th><th>합계</th>"+Array.from({length:maxP},(_,i)=>`<th>${i+1}차</th>`).join("")+"<th>상태</th><th>최근 제출</th><th></th></tr></thead>";
   const body=document.createElement("tbody");
   for(const r of list){
     const ps=psOf(r);const tr=document.createElement("tr");if(!r.submitted)tr.className="unsub";
     const td=(t)=>{const c=document.createElement("td");c.textContent=t;tr.append(c);return c};
     if(all)td(r.cls?r.cls+"반":"-");
     td(r.no??"-");{const c=document.createElement("td");if(r.dates.length){const nb=document.createElement("button");nb.type="button";nb.className="namebtn";nb.textContent=r.name||r.rosterName||"";nb.title="서류 보기";nb.onclick=()=>openViewer(r);c.append(nb)}else c.textContent=r.name||r.rosterName||"";tr.append(c)}td(usedOf(r)?usedOf(r)+"일":"-");td(rcnt(r)+"일");td(totalOf(r)+"일");
-    for(let i=0;i<4;i++){const p=ps[i];const c=td(p?periodText(p):"");if(p&&p.past)c.className="pastcell"}
+    for(let i=0;i<maxP;i++){const p=ps[i];const c=td(p?periodText(p):"");if(p&&p.past)c.className="pastcell"}
     const sc=document.createElement("td");const pill=document.createElement("span");
     if(!r.submitted){pill.className="pill warn";pill.textContent=r.dates.length?"미제출 · 명단 일정":"미제출"}
     else if(totalOf(r)>MAX){pill.className="pill bad";pill.textContent=`${totalOf(r)-MAX}일 초과`}
-    else if(ps.length>4){pill.className="pill warn";pill.textContent=`${ps.length}개 기간: `+ps.slice(4).map(periodText).join(", ")}
     else if(r.dates.length===0){pill.className="pill warn";pill.textContent="선택 없음"}
     else{pill.className="pill ok";pill.textContent="확인"}
     sc.append(pill);
@@ -1181,7 +1186,7 @@ function renderEdit(){
   const ul=$("editnotes");ul.textContent="";
   const ps=allPeriods(rec.past,[...editSet],[...editHalf]);const w=[];
   if(n>L)w.push({bad:true,t:`${Math.round((n-L)*10)/10}일 초과했어요.`});
-  if(ps.length>4)w.push({bad:true,t:`기간이 ${ps.length}개예요. 신청서 칸은 4차까지입니다.`});
+
   periods([...editSet],[...editHalf]).forEach((p,i)=>w.push({t:`${i+1}차 ${periodText(p)}`}));
   for(const x of w){const li=document.createElement("li");li.className="note"+(x.bad?" bad":"");if(!x.bad){li.style.background="var(--field-soft)";li.style.color="var(--field)"}li.textContent=x.t;ul.append(li)}
   renderCalInto($("editcal"),editSet,k=>{cycleDay(editSet,editHalf,k);editDirty=true;editStatus("저장하지 않은 변경이 있어요.","");renderEdit()},editHalf)}
@@ -1268,10 +1273,11 @@ function renderAttend(byC){
     const e=document.createElement("td");e.className="hint";e.textContent=halfOn(r,attDate)?"반일 체험":"";
     tr.append(...cells,c,e);tb.append(tr)}
   t.append(tb);sc.append(t);w.append(sc)}
+const PERIODS_BY_WD={1:7,2:5,3:7,4:7,5:6};const nPer=k=>PERIODS_BY_WD[parse(k).getDay()]||7;
 function attSheet(X,k){const data=attData(k);const total=data.reduce((a,d)=>a+d.go.length,0);
-  const aoa=[[`${dateLabel(k)} 3학년 등교 학생 출석부 (등교 ${total}명)`],["연번","반","번호","이름","출석 확인","비고"]];let q=0;
-  for(const d of data)for(const r of d.go){q++;aoa.push([q,d.cls,r.no,r.name||r.rosterName||"","",halfOn(r,k)?"반일 체험":""])}
-  const ws=X.utils.aoa_to_sheet(aoa);ws["!cols"]=[{wch:5},{wch:5},{wch:6},{wch:12},{wch:12},{wch:14}];return ws}
+  const aoa=[[`${dateLabel(k)} 3학년 등교 학생 출석부 (등교 ${total}명)`],["연번","반","번호","이름",...Array.from({length:nPer(k)},(_,i)=>`${i+1}교시`),"비고"]];let q=0;const NP=nPer(k);
+  for(const d of data)for(const r of d.go){q++;aoa.push([q,d.cls,r.no,r.name||r.rosterName||"",...Array(NP).fill(""),halfOn(r,k)?"반일 체험":""])}
+  const ws=X.utils.aoa_to_sheet(aoa);ws["!cols"]=[{wch:5},{wch:5},{wch:6},{wch:12},...Array(NP).fill({wch:6}),{wch:12}];return ws}
 $("attxlsxall").onclick=async()=>{const max=parseInt($("attmax").value,10);const all=allStudents();
   const ks=SEL.filter(k=>!(max>0)||goingOn(all,k).length<=max);if(!ks.length){gStatus(`등교 인원이 ${max}명 이하인 날이 없어요.`);return}
   try{const X=await loadXLSX();const wb=X.utils.book_new();
@@ -1282,12 +1288,12 @@ $("attxlsxall").onclick=async()=>{const max=parseInt($("attmax").value,10);const
 $("attdate").onchange=()=>{attDate=$("attdate").value;renderGrade(false)};
 function attHTML(k){const data=attData(k);const total=data.reduce((a,d)=>a+d.go.length,0);
   const esc=v=>String(v).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
-  let h=`<section><h1>${esc(dateLabel(k))} 3학년 등교 학생 출석부</h1><p class="sub">등교 예정 ${total}명${INFO[k]&&INFO[k].t!=="field"?" · "+esc(INFO[k].l):""} · 확인 교사: ____________</p><table><thead><tr><th>연번</th><th>반</th><th>번호</th><th>이름</th><th>출석 확인</th><th>비고</th></tr></thead><tbody>`;let q=0;
-  for(const d of data)for(const r of d.go){q++;h+=`<tr><td>${q}</td><td>${d.cls}</td><td>${r.no}</td><td>${esc(r.name||r.rosterName||"")}</td><td></td><td>${halfOn(r,k)?"반일 체험":""}</td></tr>`}
+  let h=`<section><h1>${esc(dateLabel(k))} 3학년 등교 학생 출석부</h1><p class="sub">등교 예정 ${total}명${INFO[k]&&INFO[k].t!=="field"?" · "+esc(INFO[k].l):""} · 확인 교사: ____________</p><table><thead><tr><th>연번</th><th>반</th><th>번호</th><th>이름</th>${Array.from({length:nPer(k)},(_,i)=>`<th class="per">${i+1}교시</th>`).join("")}<th>비고</th></tr></thead><tbody>`;let q=0;const NP=nPer(k);
+  for(const d of data)for(const r of d.go){q++;h+=`<tr><td>${q}</td><td>${d.cls}</td><td>${r.no}</td><td>${esc(r.name||r.rosterName||"")}</td>${"<td></td>".repeat(NP)}<td>${halfOn(r,k)?"반일 체험":""}</td></tr>`}
   return h+"</tbody></table></section>"}
 function printHTML(body,title){const old=document.getElementById("printframe");if(old)old.remove();
   const f=document.createElement("iframe");f.id="printframe";f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";document.body.append(f);
-  const d=f.contentWindow.document;d.open();d.write('<!doctype html><html><head><meta charset="utf-8"><title>'+String(title).replace(/[<>&]/g,"")+'</title><style>@page{size:A4;margin:14mm}body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#000}h1{font-size:18pt;margin:0 0 4pt}.sub{margin:0 0 8pt;font-size:10.5pt}table{width:100%;border-collapse:collapse;font-size:11pt}th,td{border:1px solid #000;padding:4pt 6pt;text-align:center}th{background:#eee}td:nth-child(4){text-align:left}td:nth-child(5){width:20%}section{break-after:page;page-break-after:always}section:last-child{break-after:auto;page-break-after:auto}thead{display:table-header-group}tr{break-inside:avoid}</style></head><body>'+body+'</body></html>');d.close();
+  const d=f.contentWindow.document;d.open();d.write('<!doctype html><html><head><meta charset="utf-8"><title>'+String(title).replace(/[<>&]/g,"")+'</title><style>@page{size:A4;margin:14mm}body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:#000}h1{font-size:18pt;margin:0 0 4pt}.sub{margin:0 0 8pt;font-size:10.5pt}table{width:100%;border-collapse:collapse;font-size:11pt}th,td{border:1px solid #000;padding:4pt 6pt;text-align:center}th{background:#eee}td:nth-child(4){text-align:left}th:nth-child(-n+3){width:6%}th:nth-child(4){width:14%}th.per{width:7%;font-size:9.5pt;padding:4pt 2pt}td:nth-child(4){min-width:4.5em}td:last-child{font-size:9.5pt}section{break-after:page;page-break-after:always}section:last-child{break-after:auto;page-break-after:auto}thead{display:table-header-group}tr{break-inside:avoid}</style></head><body>'+body+'</body></html>');d.close();
   setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print()},200)}
 $("attprint").onclick=()=>{if(!attDate)return;printHTML(attHTML(attDate),`${dateLabel(attDate)} 출석부`);gStatus("출석부 인쇄 창을 열었어요.")};
 $("attprintall").onclick=()=>{const max=parseInt($("attmax").value,10);const all=allStudents();
@@ -1363,6 +1369,43 @@ $("gridsave").onclick=async()=>{
     const n=await run("tSaveGrid",PW,gridCls,entries);gridDirty=false;gridStatus(`${gridCls}반 ${n}명을 저장했어요.`,"ok");await loadTeacher();renderGrid();gridStatus(`${gridCls}반 ${n}명을 저장했어요.`,"ok")}
   catch(e){gridStatus(e.msg||"저장하지 못했어요. 잠시 후 다시 눌러 주세요.","err")}
   finally{$("gridsave").disabled=false}};
+
+// ---- 엑셀 표 붙여넣기 → 일정 입력 표 채우기 ----
+function parsePasteTable(txt){
+  const Y=+SEL[0].slice(0,4);const first=SEL[0];
+  const key=(m,d)=>`${m<3?Y+1:Y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const re=/^(\d{1,2})\/(\d{1,2})(?:\s*[-~]\s*(?:(\d{1,2})\/)?(\d{1,2}))?$/;
+  const lines=txt.replace(/\r/g,"").split("\n").map(l=>l.split("\t").map(c=>c.trim()));
+  const out=[];
+  for(let i=0;i<lines.length;i++){const c=lines[i];const nm=(c[0]||"").replace(/\s+/g,"");
+    if(!nm||/^[\d.]+$/.test(nm))continue;
+    const ps=[];c.slice(1).forEach(v=>{const m=v.match(re);if(m){const m1=+m[1],d1=+m[2],m2=m[3]?+m[3]:m1,d2=m[4]?+m[4]:d1;ps.push({txt:v,s:key(m1,d1),e:key(m2,d2)})}});
+    const nums=c.slice(1).filter(v=>/^[\d.]+$/.test(v)).map(Number);const total=nums.length?nums[nums.length-1]:null;
+    let counts=[];const nx=lines[i+1];if(nx&&!(nx[0]||"").trim()){counts=nx.slice(1).filter(v=>/^[\d.]+$/.test(v)).map(Number);i++}
+    const post=new Set(),warn=[];let pre=0;
+    ps.forEach((p,j)=>{const want=counts[j];
+      if(p.e<first){if(want!=null)pre+=want;return}
+      const days=SEL.filter(k=>k>=p.s&&k<=p.e);days.forEach(k=>post.add(k));
+      if(want!=null&&want!==days.length)warn.push(`${p.txt}: 표 ${want}일, 달력 ${days.length}일`)});
+    out.push({name:nm,dates:post,pre,total,warn,nper:ps.length})}
+  return out}
+$("gridpastebtn").onclick=()=>{const b=$("gridpastebox");b.hidden=!b.hidden;if(!b.hidden)$("gridpastetxt").focus()};
+$("gridpastecancel").onclick=()=>{$("gridpastebox").hidden=true};
+$("gridpastego").onclick=()=>{const ul=$("gridpastemsg");ul.textContent="";
+  const add=(t,bad)=>{const li=document.createElement("li");li.className="note"+(bad?" bad":"");li.textContent=t;ul.append(li)};
+  const rows=parsePasteTable($("gridpastetxt").value);if(!rows.length){add("읽을 수 있는 줄이 없어요. 이름과 기간이 있는 칸을 복사해 주세요.",true);return}
+  const norm=v=>String(v||"").replace(/\s+/g,"");let ok=0;const miss=[],preDiff=[];
+  for(const r of rows){const g=gridRows.find(x=>norm(x.name)===r.name);if(!g){miss.push(r.name);continue}
+    if(g.submitted){add(`${r.name}: 학생이 직접 제출한 일정이 있어 바꾸지 않았어요.`,true);continue}
+    g.dates=new Set(r.dates);g.half=new Set();ok++;
+    r.warn.forEach(w=>add(`${r.name} ${w}`,true));
+    if(r.pre&&r.pre!==g.used)preDiff.push(`${r.name}(표 ${r.pre}일 / 시트 ${g.used}일)`);
+    if(r.total!=null&&Math.abs(r.dates.size+r.pre-r.total)>0.01)add(`${r.name}: 합계 ${r.total}일인데 계산은 ${r.dates.size+r.pre}일이에요.`,true)}
+  gridDirty=gridRows.some(gChanged);drawGrid();
+  if(miss.length)add(`이 반 명단에서 못 찾은 이름: ${miss.join(", ")}`,true);
+  if(preDiff.length)add(`수능 전(학기 중) 일수가 시트와 달라요: ${preDiff.join(", ")}. 학년 전체 출석부에는 영향이 없어요.`);
+  add(`${ok}명의 체험학습 날짜를 채웠어요. 표를 확인하고 위의 ‘저장’을 눌러야 반영돼요.`);
+  gridStatus(`${ok}명 채움 · 아직 저장 전이에요.`,"")};
 
 // ---------- 학생별 서류 보기 ----------
 let viewRow=null,viewSeq=0;
@@ -1448,13 +1491,13 @@ $("bulkpdf").onclick=async()=>{
 // ---------- 학생별 신청 기간표 ----------
 function statusOf(r){const ps=psOf(r);const t=totalOf(r);
   if(!r.submitted)return r.dates.length?"미제출(시트 일정)":"미제출";
-  if(t>MAX)return `${Math.round((t-MAX)*10)/10}일 초과`;if(ps.length>4)return `기간 ${ps.length}개`;if(!r.dates.length)return "선택 없음";return "확인"}
+  if(t>MAX)return `${Math.round((t-MAX)*10)/10}일 초과`;if(!r.dates.length)return "선택 없음";return "확인"}
 const pText=p=>`${fmt(p.start)}${p.half?" 반일":p.start!==p.end?" ~ "+fmt(p.end):""} (${p.n})일`;
 async function drawPeriods(list,cls){
   try{await Promise.all([document.fonts.load('700 24px "IBM Plex Sans KR"'),document.fonts.load('40px "Do Hyeon"')])}catch(e){}
   const F='"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif',DF='"Do Hyeon",'+F;
   const studs=list.slice().sort((a,b)=>(a.no||999)-(b.no||999));
-  const P=40,RH=36,cols=[["번호",58],["이름",104],["학기 중",76],["수능 이후",86],["합계",70],["1차",258],["2차",258],["3차",258],["4차",258],["상태",150]];
+  const P=40,RH=36,cols=[["번호",58],["이름",104],["학기 중",76],["수능 이후",86],["합계",70],...Array.from({length:Math.max(4,...list.map(r=>psOf(r).length))},(_,i)=>[`${i+1}차`,258]),["상태",150]];
   const W=P*2+cols.reduce((a,c)=>a+c[1],0);const top=P+110;const H=top+44+studs.length*RH+P+40;
   const cv=document.createElement("canvas");cv.width=W;cv.height=H;const x=cv.getContext("2d");
   x.fillStyle=PAPER;x.fillRect(0,0,W,H);
@@ -1469,8 +1512,8 @@ async function drawPeriods(list,cls){
     x.font=`500 16px ${F}`;x.fillStyle=r.submitted?INK:MUTE;
     const cell=(i,txt,col,bold)=>{x.fillStyle=col||(r.submitted?INK:MUTE);x.font=`${bold?700:500} 16px ${F}`;let t2=String(txt);while(x.measureText(t2).width>cols[i][1]-14&&t2.length>2)t2=t2.slice(0,-1);x.fillText(t2,xs[i]+8,y+24)};
     cell(0,r.no);cell(1,(r.name||r.rosterName||"")+(r.submitted?"":"*"));cell(2,u?u+"일":"-");cell(3,rcnt(r)+"일");cell(4,Math.round(t*10)/10+"일",t>MAX?MUST:null,true);
-    for(let i=0;i<4;i++){const p=ps[i];if(p)cell(5+i,pText(p)+(p.past?" ·학기중":""),p.past?MUTE:null)}
-    cell(9,ps.length>4?`${st} (+${ps.length-4})`:st,st==="확인"?GRN:(/초과/.test(st)?MUST:"#a85f00"),true)});
+    for(let i=0;i<cols.length-6;i++){const p=ps[i];if(p)cell(5+i,pText(p)+(p.past?" ·학기중":""),p.past?MUTE:null)}
+    cell(cols.length-1,st,st==="확인"?GRN:(/초과/.test(st)?MUST:"#a85f00"),true)});
   x.strokeStyle=INK;x.lineWidth=2;x.beginPath();x.moveTo(P,top+44);x.lineTo(W-P,top+44);x.stroke();
   x.strokeStyle=LINE;x.lineWidth=1;x.beginPath();x.moveTo(P,top+44+studs.length*RH);x.lineTo(W-P,top+44+studs.length*RH);x.stroke();
   x.fillStyle=MUTE;x.font=`500 15px ${F}`;x.fillText("* 아직 제출하지 않은 학생 (시트에 적힌 일정 기준) · ‘학기중’ = 수능 전에 쓴 기간",P,H-P+6);
